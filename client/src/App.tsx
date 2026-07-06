@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react';
 import { RealGpsProvider } from './providers/RealGpsProvider';
+import { requestGeolocationPermission } from './providers/geolocationPermission';
 import { DriveScreen } from './ui/DriveScreen';
 
 /**
@@ -14,18 +15,10 @@ export function App() {
 
   function handleStart(): void {
     setRequesting(true);
-    const proceed = (): void => {
+    void requestGeolocationPermission().then(() => {
       setRequesting(false);
       setPhase('drive');
-    };
-    if (typeof navigator !== 'undefined' && navigator.geolocation) {
-      navigator.geolocation.getCurrentPosition(proceed, proceed, {
-        enableHighAccuracy: true,
-        timeout: 10_000,
-      });
-    } else {
-      proceed();
-    }
+    });
   }
 
   if (phase === 'drive') {
