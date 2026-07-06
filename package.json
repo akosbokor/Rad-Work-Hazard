@@ -1,0 +1,19 @@
+{
+  "name": "m1-road-hazard-alert",
+  "version": "0.1.0",
+  "private": true,
+  "workspaces": [
+    "shared",
+    "server",
+    "client"
+  ],
+  "scripts": {
+    "dev": "concurrently -n server,client -c blue,green \"npm -w server run dev\" \"npm -w client run dev\"",
+    "test": "npm -w client run test",
+    "typecheck": "npm -w shared run typecheck && npm -w server run typecheck && npm -w client run typecheck"
+  },
+  "devDependencies": {
+    "concurrently": "^9",
+    "typescript": "~5.7"
+  }
+}
