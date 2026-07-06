@@ -8,6 +8,7 @@ export const en: Record<I18nKey, string> = {
   'start.button': 'Start',
   'start.locating': 'Locating…',
   'start.language': 'Language',
+  'start.qrCaption': 'Scan to join on your phone',
 
   // Hazard-type names
   'hazard.construction': 'Roadworks',

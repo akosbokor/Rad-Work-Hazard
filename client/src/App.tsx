@@ -5,6 +5,7 @@ import { ROUTE_TOWARD_GYOR } from './providers/routes';
 import { requestGeolocationPermission } from './providers/geolocationPermission';
 import type { PositionProvider } from './providers/types';
 import { DriveScreen } from './ui/DriveScreen';
+import { QrJoin } from './ui/QrJoin';
 import { useAppStore } from './store';
 import { unlockAudio } from './audio';
 import { getLang, setLang, t, type Lang } from './i18n';
@@ -52,6 +53,7 @@ export function App() {
 
   return (
     <main className="start-screen">
+      <QrJoin />
       <div className="start-card">
         <h1>M1 Figyelő</h1>
         <p>{t('start.subtitle')}</p>

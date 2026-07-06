@@ -12,6 +12,7 @@ export const hu = {
   'start.button': 'Indítás',
   'start.locating': 'Helymeghatározás…',
   'start.language': 'Nyelv',
+  'start.qrCaption': 'Olvassa be a telefonjával a csatlakozáshoz',
 
   // Hazard-type names (used inside spoken templates and the overlay)
   'hazard.construction': 'Útépítés',

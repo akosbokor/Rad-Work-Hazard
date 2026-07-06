@@ -12,9 +12,17 @@ Plan: `docs/plans/2026-07-06-road-hazard-poc.md` (v2, supersedes `implementation
 - ✅ **Phase 0 — scaffold** (commit `12c333c`): npm workspaces, moduleResolution bundler, shared types byte-exact to plan, vite 6.4.3 single-major, typecheck clean in all 3 workspaces, CLAUDE.md with all conventions. Independent review passed; orchestrator re-verified.
 - ✅ **Phase 1 — mock cloud** (commit `b5d96b9`): store + all routes + SSE (verified live: hazard_updated on PATCH) + seed hazards (M1 corridor bearing 255°, local-test Budapest) + admin panel at /admin. Turf calls use `{units:'meters'}`; radius = centerline dist − buffer; active-only on radius endpoint only. Review passed; orchestrator re-verified radius hit/miss + /health.
 
+- ✅ **Phase 2 — map client** (commits `c1e712e`, `5efb0ba`): Leaflet drive screen (divIcon car marker with CSS heading rotation, turf-buffered zone polygons), RealGpsProvider (m/s→km/h, heading fallback, accuracy filter), SSE client with auto-reconnect + active-only invariant, pinned store shape live on `window.__store`. Reviewer verified headless in Playwright: map renders, store keys exact, SSE removal within ~1.5 s, radius proxy works, bad-param 400 hardening in place. One nit (geolocation priming outside providers/) fixed by orchestrator in `5efb0ba`.
+
+- ✅ **Phase 3 — alert engine + simulation** (commits `8587b3b`, `8213715`): pure engine built tests-first, 7/7 scenarios green; purity verified (no DOM/fetch/Date.now, time from fix.timestamp only). Browser-verified progression: APPROACHING @1831 m → SLOW_DOWN @639 m → IN_ZONE → PASSED; reverse route silent (637 fixes). SimulatedProvider + routes + SimControls + alerting.ts glue + demo-mode toggle. Orchestrator fixes: monotonic sim clock across restart/scrub (was: ack cooldown could mute a restarted demo); removed an unspecced de-escalation edge (simplicity rule).
+
+- ✅ **Phase 4 — alert UX** (commits `fce06b0`, `0011c4d`): full-screen overlay (amber APPROACHING → red SLOW_DOWN/IN_ZONE, live countdown, tap-to-ack, ≥48 px targets, reduced-motion), oscillator chime + Hungarian speechSynthesis (en fallback), vibration, HU/EN i18n with start-screen toggle, debug drawer, wake lock. Reviewer verified in Playwright: overlay at ~1922 m, correct spoken templates in lastSpoken, vibration [300,100,300], ack/re-escalation correct, admin deactivation cleared overlay in 13 ms. (Reviewer's structured output was garbled; real verdict recovered from its transcript — full pass + 2 nits.) Orchestrator applied nits in `0011c4d`: removed dead onEngineEvent scaffolding, moved last hardcoded strings to i18n.
+
+- ✅ **Phase 5 — demo polish** (commit `phase 5: demo polish`): full README (quick start incl. `/admin`, verified 5-step demo script, phone/LAN + HTTPS-secure-context + ngrok/cloudflared USER-run tunnel notes, how to move the `local-test` hazard, honest limitations, mock→real cloud future-work note); `qrcode` client dep + `QrJoin` corner QR on the start screen encoding `window.location.origin` with HU/EN caption. Verified end-to-end in Playwright: QR renders (data-URL, HU+EN captions), admin loads at :8080/admin, sim run IDLE→APPROACHING→SLOW_DOWN→IN_ZONE with spoken HU templates + vibration [300,100,300]. typecheck clean, 7/7 tests green, dev boots. **POC complete.**
+
 ## In progress
 
-- 🔄 **Phase 2 — map client** (opus builder → opus reviewer workflow).
+- _(none — all five phases complete)_
 
 ## Issues / risks
 

@@ -31,6 +31,8 @@
 
 **Ports:** server `8080`, client `5173`, Vite proxy `/api` → `http://localhost:8080` (with `changeOrigin: true`; SSE passes through fine in dev).
 
+**Simplicity rule (user directive):** build exactly what a phase section specifies and nothing more. Simplest mechanism that passes acceptance wins; no speculative abstractions, no extra config/tooling, no production hardening beyond what's written. This is a POC.
+
 ---
 
 ## Phase 0 — Scaffold  *(agent: opus)*
