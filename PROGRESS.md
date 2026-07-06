@@ -1,6 +1,6 @@
 # M1 Figyelő POC — Build Progress
 
-_Last updated: 2026-07-06 (evening) — updated at every milestone._
+_Last updated: 2026-07-06 (late evening) — updated at every milestone._
 
 Plan: `docs/plans/2026-07-06-road-hazard-poc.md` (v2, supersedes `implementation-plan.md`).
 
@@ -24,6 +24,8 @@ Plan: `docs/plans/2026-07-06-road-hazard-poc.md` (v2, supersedes `implementation
 
 - **Real M1 geometry**: replaced the straight-line placeholder centerline with the actual westbound carriageway traced from OpenStreetMap (Overpass API, 19 points, Concó↔Tata), updated in all three copies (hazards.json, routes.ts, test fixtures); `direction.bearingDeg` corrected 255°→290°. Verified: 7/7 tests green, live sim shows the car on the motorway, alerts fire at the same distances.
 - **Voice quality**: `speak()` now picks a voice for the CURRENT language (English text was previously spoken by a Hungarian voice) and ranks candidates by quality (natural/neural/enhanced/Google preferred, macOS novelty voices last). Ceiling is still the device's installed voices — installing an enhanced system voice (e.g. iOS/macOS Settings → Spoken Content) improves it further.
+- Both changes independently reviewed: **PASS** (all 18 drive-segment bearings within 290°±60°, opposite carriageway rejected, three centerline copies byte-identical, voice fallback safe with zero voices). Stale comments refreshed in `e272602`. Note for future edits: the centerline exists in 3 synced copies (hazards.json, routes.ts, fixtures.ts) — change all three together.
+- Dev servers currently stopped; `npm run dev` relaunches (app :5173, admin :8080/admin).
 
 ## In progress
 
