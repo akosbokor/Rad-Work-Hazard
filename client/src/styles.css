@@ -4,6 +4,10 @@
   --text: #e6edf3;
   --muted: #8b98a5;
   --accent: #38bdf8;
+  /* Strict three-colour severity code — used ONLY for severity encoding. */
+  --sev-info: #64748b; /* blue-grey */
+  --sev-warning: #f59e0b; /* amber */
+  --sev-danger: #ef4444; /* red */
 }
 
 * {
@@ -85,6 +89,30 @@ body {
   height: 20px;
   accent-color: var(--accent);
   cursor: pointer;
+}
+
+/* --- Language toggle --- */
+.lang-toggle {
+  display: inline-flex;
+  gap: 6px;
+  margin: 0 0 20px;
+}
+
+.lang-button {
+  background: transparent;
+  color: var(--muted);
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  border-radius: 10px;
+  min-width: 56px;
+  min-height: 48px;
+  font-size: 15px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.lang-button.active {
+  border-color: var(--accent);
+  color: var(--accent);
 }
 
 /* --- Drive screen --- */
@@ -217,4 +245,199 @@ body {
   width: 140px;
   accent-color: var(--accent);
   cursor: pointer;
+}
+
+/* --- Alert overlay (full-screen takeover) --- */
+.alert-overlay {
+  position: absolute;
+  inset: 0;
+  z-index: 2000;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 18px;
+  padding: 32px 24px;
+  /* Near-black instrument look; the severity colour owns all the contrast. */
+  background: radial-gradient(circle at 50% 35%, #12161c 0%, #05070a 75%);
+  border: none;
+  color: var(--text);
+  text-align: center;
+  cursor: pointer;
+  animation: alert-in 160ms ease-out;
+}
+
+.alert-overlay.sev-warning {
+  --sev: var(--sev-warning);
+}
+.alert-overlay.sev-danger {
+  --sev: var(--sev-danger);
+}
+
+.alert-headline {
+  font-size: 22px;
+  font-weight: 700;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  color: var(--sev);
+}
+
+/* The one heavy condensed display size — the distance readout. */
+.alert-distance {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  color: var(--sev);
+  line-height: 0.9;
+}
+
+.alert-distance-value {
+  font-family: 'Arial Narrow', 'Roboto Condensed', system-ui, sans-serif;
+  font-size: clamp(120px, 34vw, 260px);
+  font-weight: 800;
+  font-stretch: condensed;
+  letter-spacing: -2px;
+  font-variant-numeric: tabular-nums;
+}
+
+.alert-distance-unit {
+  font-size: clamp(28px, 7vw, 48px);
+  font-weight: 600;
+  color: var(--muted);
+}
+
+/* Thin animated line echoing the zone geometry, shrinking as we close in. */
+.alert-geometry {
+  width: min(70vw, 420px);
+  height: 3px;
+  background: rgba(255, 255, 255, 0.1);
+  overflow: hidden;
+}
+
+.alert-geometry-line {
+  display: block;
+  height: 100%;
+  width: 100%;
+  background: var(--sev);
+  transform-origin: left center;
+  transition: transform 900ms linear;
+}
+
+.alert-message {
+  max-width: 34ch;
+  font-size: 16px;
+  color: var(--muted);
+}
+
+.alert-speed-chip {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 8px;
+  padding: 12px 20px;
+  min-height: 48px;
+  border: 2px solid var(--sev);
+  border-radius: 12px;
+}
+
+.alert-speed-label {
+  font-size: 13px;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.alert-speed-value {
+  font-size: 32px;
+  font-weight: 800;
+  color: var(--sev);
+}
+
+.alert-speed-unit {
+  font-size: 15px;
+  color: var(--muted);
+}
+
+.alert-ack-hint {
+  position: absolute;
+  bottom: 28px;
+  font-size: 13px;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+@keyframes alert-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .alert-overlay {
+    animation: none;
+  }
+  .alert-geometry-line {
+    transition: none;
+  }
+}
+
+/* --- Debug drawer --- */
+.debug-drawer {
+  position: absolute;
+  left: 16px;
+  bottom: 20px;
+  z-index: 1500;
+  max-width: min(92vw, 420px);
+  font-size: 12px;
+}
+
+.debug-toggle {
+  background: var(--panel);
+  color: var(--muted);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 10px;
+  padding: 12px 14px;
+  min-height: 48px;
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.debug-body {
+  margin-top: 8px;
+  padding: 12px 14px;
+  background: var(--panel);
+  backdrop-filter: blur(6px);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 10px;
+  max-height: 40vh;
+  overflow-y: auto;
+}
+
+.debug-section + .debug-section {
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.debug-heading {
+  font-weight: 700;
+  color: var(--text);
+  margin-bottom: 4px;
+}
+
+.debug-label {
+  color: var(--muted);
+}
+
+.debug-label span {
+  color: var(--text);
+}
+
+.debug-row {
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
 }

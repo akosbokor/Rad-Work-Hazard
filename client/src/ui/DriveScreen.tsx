@@ -9,6 +9,9 @@ import type { PositionProvider } from '../providers/types';
 import { SimulatedProvider } from '../providers/SimulatedProvider';
 import { StatusStrip } from './StatusStrip';
 import { SimControls } from './SimControls';
+import { AlertOverlay } from './AlertOverlay';
+import { DebugDrawer } from './DebugDrawer';
+import { useWakeLock } from './useWakeLock';
 
 const FETCH_RADIUS_M = 5000;
 const REFETCH_INTERVAL_MS = 30_000;
@@ -64,6 +67,7 @@ export function DriveScreen({ provider }: { provider: PositionProvider }) {
   const hazards = useAppStore((s) => s.hazards);
   const lastFix = useAppStore((s) => s.lastFix);
   const [follow, setFollow] = useState(true);
+  useWakeLock();
 
   // Session lifecycle: SSE stream, GPS provider, and hazard refetch loop.
   useEffect(() => {
@@ -165,6 +169,8 @@ export function DriveScreen({ provider }: { provider: PositionProvider }) {
         {follow ? 'Követés: be' : 'Követés: ki'}
       </button>
       {provider instanceof SimulatedProvider && <SimControls provider={provider} />}
+      <AlertOverlay />
+      <DebugDrawer />
     </div>
   );
 }
