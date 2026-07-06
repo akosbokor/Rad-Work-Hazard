@@ -20,6 +20,11 @@ Plan: `docs/plans/2026-07-06-road-hazard-poc.md` (v2, supersedes `implementation
 
 - ✅ **Phase 5 — demo polish** (commit `592e02c`): full README (quick start incl. `/admin`, verified 5-step demo script, phone/LAN + HTTPS-secure-context + ngrok/cloudflared USER-run tunnel notes, how to move the `local-test` hazard, honest limitations, mock→real cloud future-work note); `qrcode` client dep + `QrJoin` corner QR on the start screen encoding `window.location.origin` with HU/EN caption. Verified end-to-end in Playwright: QR renders (data-URL, HU+EN captions), admin loads at :8080/admin, sim run IDLE→APPROACHING→SLOW_DOWN→IN_ZONE with spoken HU templates + vibration [300,100,300]. typecheck clean, 7/7 tests green, dev boots. **POC complete.**
 
+## Post-v1 improvements (2026-07-06 evening, commit `80bae93`)
+
+- **Real M1 geometry**: replaced the straight-line placeholder centerline with the actual westbound carriageway traced from OpenStreetMap (Overpass API, 19 points, Concó↔Tata), updated in all three copies (hazards.json, routes.ts, test fixtures); `direction.bearingDeg` corrected 255°→290°. Verified: 7/7 tests green, live sim shows the car on the motorway, alerts fire at the same distances.
+- **Voice quality**: `speak()` now picks a voice for the CURRENT language (English text was previously spoken by a Hungarian voice) and ranks candidates by quality (natural/neural/enhanced/Google preferred, macOS novelty voices last). Ceiling is still the device's installed voices — installing an enhanced system voice (e.g. iOS/macOS Settings → Spoken Content) improves it further.
+
 ## In progress
 
 - _(none — all five phases complete)_

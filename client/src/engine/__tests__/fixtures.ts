@@ -61,9 +61,9 @@ function norm(bearingDeg: number): number {
 const DRIVE_COORDS: [number, number][] = [...M1_CENTERLINE].reverse();
 const ENTRY = DRIVE_COORDS[0]; // east (Tata) end — where an approach enters
 
-/** Heading of travel when entering the zone from the Budapest side (~256°). */
+/** Heading of travel when entering the zone from the Budapest side (~289°). */
 export const ENTRY_BEARING = norm(turfBearing(point(ENTRY), point(DRIVE_COORDS[1])));
-/** Heading of travel when driving AWAY from the zone toward Budapest (~76°). */
+/** Heading of travel when driving AWAY from the zone toward Budapest (~109°). */
 export const BACK_BEARING = norm(ENTRY_BEARING + 180);
 
 /** Fixed epoch base for deterministic fixture timestamps. */
