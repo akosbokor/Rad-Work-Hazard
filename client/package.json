@@ -12,10 +12,15 @@
   },
   "dependencies": {
     "@m1/shared": "*",
+    "@turf/turf": "^7.3.5",
+    "leaflet": "^1.9.4",
     "react": "^19",
-    "react-dom": "^19"
+    "react-dom": "^19",
+    "react-leaflet": "^5.0.0",
+    "zustand": "^5.0.14"
   },
   "devDependencies": {
+    "@types/leaflet": "^1.9.21",
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "@vitejs/plugin-react": "^4",

@@ -1,12 +1,46 @@
-import type { AlertState } from '@m1/shared';
+import { useMemo, useState } from 'react';
+import { RealGpsProvider } from './providers/RealGpsProvider';
+import { DriveScreen } from './ui/DriveScreen';
 
-// Phase 0 scaffold: proves the @m1/shared type import resolves and typechecks.
+/**
+ * Minimal start screen → drive screen. Start requests geolocation, then shows
+ * the map regardless of grant/deny so the demo still runs. Real design lands in
+ * Phase 4.
+ */
 export function App() {
-  const initialState: AlertState = 'IDLE';
+  const [phase, setPhase] = useState<'start' | 'drive'>('start');
+  const [requesting, setRequesting] = useState(false);
+  const provider = useMemo(() => new RealGpsProvider(), []);
+
+  function handleStart(): void {
+    setRequesting(true);
+    const proceed = (): void => {
+      setRequesting(false);
+      setPhase('drive');
+    };
+    if (typeof navigator !== 'undefined' && navigator.geolocation) {
+      navigator.geolocation.getCurrentPosition(proceed, proceed, {
+        enableHighAccuracy: true,
+        timeout: 10_000,
+      });
+    } else {
+      proceed();
+    }
+  }
+
+  if (phase === 'drive') {
+    return <DriveScreen provider={provider} />;
+  }
+
   return (
-    <main>
-      <h1>M1 Figyelő</h1>
-      <p>Road Hazard Alert POC — scaffold ready. Engine state: {initialState}</p>
+    <main className="start-screen">
+      <div className="start-card">
+        <h1>M1 Figyelő</h1>
+        <p>Road Hazard Alert — közelségi figyelmeztetés útépítési zónákra.</p>
+        <button type="button" className="start-button" onClick={handleStart} disabled={requesting}>
+          {requesting ? 'Helymeghatározás…' : 'Indítás'}
+        </button>
+      </div>
     </main>
   );
 }

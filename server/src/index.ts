@@ -24,8 +24,24 @@ const shouldPersist = (req: express.Request): boolean => req.query.persist === '
 // GET /api/v1/hazards?lat&lon&radius → active hazards within radius (app client)
 app.get('/api/v1/hazards', (req, res) => {
   const { lat, lon, radius } = req.query;
-  if (lat !== undefined && lon !== undefined && radius !== undefined) {
-    const hazards = store.findNear(Number(lat), Number(lon), Number(radius));
+  const anyPresent = lat !== undefined || lon !== undefined || radius !== undefined;
+  const allPresent = lat !== undefined && lon !== undefined && radius !== undefined;
+  if (anyPresent) {
+    // Radius query: all three params must be present and finite, else 400.
+    if (!allPresent) {
+      res
+        .status(400)
+        .json({ error: 'lat, lon and radius must all be provided together' });
+      return;
+    }
+    const latN = Number(lat);
+    const lonN = Number(lon);
+    const radiusN = Number(radius);
+    if (!Number.isFinite(latN) || !Number.isFinite(lonN) || !Number.isFinite(radiusN)) {
+      res.status(400).json({ error: 'lat, lon and radius must be finite numbers' });
+      return;
+    }
+    const hazards = store.findNear(latN, lonN, radiusN);
     res.json({ hazards });
     return;
   }
