@@ -23,10 +23,11 @@ export class SimulatedProvider implements PositionProvider {
   private readonly line: Feature<LineString>;
   private readonly totalM: number;
   private readonly stepM: number; // meters per simulated second
-  private readonly baseEpoch = Date.now();
+  // Monotonic simulated clock: advances one second per tick and never rewinds
+  // on restart/scrub, so engine cooldowns keyed to fix.timestamp stay valid.
+  private clockMs = Date.now();
 
   private progressM = 0;
-  private simSec = 0;
   private multiplier: SimMultiplier = 1;
   private playing = false;
   private timer: ReturnType<typeof setInterval> | null = null;
@@ -84,7 +85,7 @@ export class SimulatedProvider implements PositionProvider {
   scrubTo(fraction: number): void {
     const f = Math.min(1, Math.max(0, fraction));
     this.progressM = f * this.totalM;
-    this.simSec = Math.round(this.progressM / this.stepM);
+    this.clockMs += 1000;
     this.emitFix();
     this.notify();
   }
@@ -109,7 +110,6 @@ export class SimulatedProvider implements PositionProvider {
 
   private restartPosition(): void {
     this.progressM = 0;
-    this.simSec = 0;
   }
 
   private schedule(): void {
@@ -120,7 +120,7 @@ export class SimulatedProvider implements PositionProvider {
   private tick(): void {
     if (!this.playing) return;
     this.progressM = Math.min(this.progressM + this.stepM, this.totalM);
-    this.simSec += 1;
+    this.clockMs += 1000;
     this.emitFix();
     if (this.progressM >= this.totalM) this.pause();
     else this.notify();
@@ -151,7 +151,7 @@ export class SimulatedProvider implements PositionProvider {
       speedKmh: this.targetKmh,
       headingDeg,
       accuracyM: 5,
-      timestamp: this.baseEpoch + this.simSec * 1000,
+      timestamp: this.clockMs,
     };
     this.cb(fix);
   }

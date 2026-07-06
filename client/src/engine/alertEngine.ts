@@ -201,11 +201,6 @@ export class AlertEngine {
         } else {
           t.notApproachingCount = 0;
         }
-        if (t.state === 'SLOW_DOWN' && dist > slowDown + this.hysteresisM) {
-          // De-escalate with the same distance margin to avoid boundary flapping.
-          this.transition(t, 'APPROACHING', dist, fix, out);
-          break;
-        }
         const target: AlertState | null =
           t.state === 'APPROACHING' && dist <= slowDown ? 'SLOW_DOWN' : null;
         this.confirmEscalation(t, target, dist, fix, out);
