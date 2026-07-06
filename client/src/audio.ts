@@ -1,4 +1,5 @@
 import { useAppStore } from './store';
+import { getLang } from './i18n';
 
 /**
  * All non-visual driver feedback: chime, speech, vibration. Browsers gate audio
@@ -69,31 +70,62 @@ export function chime(): void {
   }
 }
 
-function pickVoice(): SpeechSynthesisVoice | null {
-  const voices = window.speechSynthesis.getVoices();
-  return (
-    voices.find((v) => v.lang === 'hu-HU') ??
-    voices.find((v) => v.lang.toLowerCase().startsWith('hu')) ??
-    voices.find((v) => v.lang.toLowerCase().startsWith('en')) ??
-    null
-  );
+/**
+ * Voice quality ranking. Devices ship several voices per language and
+ * getVoices() order is arbitrary — the first match is often a legacy
+ * robot voice. Prefer modern neural/enhanced voices and known-good names;
+ * penalize the macOS novelty voices that would otherwise match English.
+ */
+const GOOD_HINTS = ['natural', 'neural', 'premium', 'enhanced', 'siri', 'google', 'tünde', 'tunde', 'samantha'];
+const NOVELTY = ['albert', 'bad news', 'bahh', 'bells', 'boing', 'bubbles', 'cellos', 'good news', 'jester', 'organ', 'superstar', 'trinoids', 'whisper', 'wobble', 'zarvox', 'grandma', 'grandpa', 'rocko', 'shelley', 'flo', 'eddy', 'reed', 'sandy', 'junior', 'ralph', 'kathy', 'fred'];
+
+function voiceScore(v: SpeechSynthesisVoice, wanted: string): number {
+  const name = v.name.toLowerCase();
+  const lang = v.lang.toLowerCase();
+  if (!lang.startsWith(wanted)) return -1;
+  let score = 1;
+  if (NOVELTY.some((n) => name.includes(n))) return 0; // last resort only
+  score += 2;
+  if (GOOD_HINTS.some((h) => name.includes(h))) score += 4;
+  if (!v.localService) score += 1; // cloud voices (e.g. Google) are usually better
+  if (v.default) score += 1;
+  return score;
 }
 
-/** Speak text, preferring a hu-HU voice with an English fallback. */
+function pickVoice(wanted: 'hu' | 'en'): SpeechSynthesisVoice | null {
+  const voices = window.speechSynthesis.getVoices();
+  let best: SpeechSynthesisVoice | null = null;
+  let bestScore = -1;
+  for (const lang of wanted === 'hu' ? ['hu', 'en'] : ['en']) {
+    for (const v of voices) {
+      const s = voiceScore(v, lang);
+      if (s > bestScore) {
+        best = v;
+        bestScore = s;
+      }
+    }
+    if (best) return best; // only fall through to English if no hu voice at all
+  }
+  return best;
+}
+
+/** Speak text with the best available voice for the CURRENT language. */
 export function speak(text: string): void {
   // Record the call first — this is the acceptance signal, independent of
   // whether a voice actually exists on this device.
   useAppStore.setState({ lastSpoken: text });
   try {
     if (!('speechSynthesis' in window)) return;
+    const lang = getLang();
     const utter = new SpeechSynthesisUtterance(text);
-    const voice = pickVoice();
+    const voice = pickVoice(lang);
     if (voice) {
       utter.voice = voice;
       utter.lang = voice.lang;
     } else {
-      utter.lang = 'hu-HU';
+      utter.lang = lang === 'hu' ? 'hu-HU' : 'en-US';
     }
+    utter.rate = 1;
     window.speechSynthesis.cancel();
     window.speechSynthesis.speak(utter);
   } catch {

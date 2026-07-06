@@ -15,16 +15,25 @@ import type { Hazard, PositionFix } from '@m1/shared';
  * GeoJSON order: [lon, lat].
  */
 export const M1_CENTERLINE: [number, number][] = [
-  [18.155, 47.626],
-  [18.1729, 47.6289],
-  [18.1908, 47.6318],
-  [18.2087, 47.6347],
-  [18.2266, 47.6376],
-  [18.2445, 47.6405],
-  [18.2624, 47.6434],
-  [18.2803, 47.6463],
-  [18.2982, 47.6492],
-  [18.316, 47.652],
+  [18.14718, 47.66533],
+  [18.15955, 47.66312],
+  [18.17628, 47.66103],
+  [18.18334, 47.65931],
+  [18.18971, 47.65678],
+  [18.20705, 47.6473],
+  [18.21467, 47.64366],
+  [18.21939, 47.6417],
+  [18.22657, 47.63923],
+  [18.24112, 47.63524],
+  [18.2592, 47.62929],
+  [18.26634, 47.62727],
+  [18.27239, 47.6261],
+  [18.27837, 47.62555],
+  [18.28415, 47.62546],
+  [18.29843, 47.62577],
+  [18.30824, 47.62533],
+  [18.31802, 47.62407],
+  [18.32886, 47.62161],
 ];
 
 /** Copy of the m1-construction seed hazard. */
@@ -35,7 +44,7 @@ export const M1_HAZARD: Hazard = {
   active: true,
   geometry: { type: 'LineString', coordinates: M1_CENTERLINE },
   bufferMeters: 60,
-  direction: { bearingDeg: 255, toleranceDeg: 60, bothWays: false },
+  direction: { bearingDeg: 290, toleranceDeg: 60, bothWays: false },
   alertDistances: { preWarn: 2000, slowDown: 800 },
   speedLimitKmh: 80,
   message: {
