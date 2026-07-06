@@ -48,8 +48,8 @@ function routeFeedback(event: EngineEvent): void {
  *   PositionProvider via pushFix) to engine.update()
  * - mirrors store hazard changes into engine.setHazards()
  * - writes hazardStates + activeAlert back into the store
- * - exposes an acknowledge() passthrough and an engine-event subscription
- *   (Phase 4 routes events → overlay/audio/vibration).
+ * - exposes an acknowledge() passthrough; engine events feed routeFeedback
+ *   (chime/speech/vibration), the overlay is store-driven.
  */
 
 const engine = new AlertEngine();
@@ -62,15 +62,6 @@ const TIER: Record<AlertState, number> = {
   SLOW_DOWN: 2,
   IN_ZONE: 3,
 };
-
-type EngineEventListener = (event: EngineEvent) => void;
-const listeners = new Set<EngineEventListener>();
-
-/** Subscribe to edge-triggered engine events (Phase 4: overlay/audio). */
-export function onEngineEvent(listener: EngineEventListener): () => void {
-  listeners.add(listener);
-  return () => listeners.delete(listener);
-}
 
 /**
  * UI-facing acknowledge passthrough — the only sanctioned engine access. The
@@ -99,10 +90,7 @@ export function initAlerting(): void {
     }
     if (state.lastFix && state.lastFix !== prev.lastFix) {
       const events = engine.update(state.lastFix);
-      for (const event of events) {
-        routeFeedback(event);
-        for (const listener of listeners) listener(event);
-      }
+      for (const event of events) routeFeedback(event);
       syncToStore();
     }
   });

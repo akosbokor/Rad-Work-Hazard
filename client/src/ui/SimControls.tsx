@@ -1,5 +1,6 @@
 import { useEffect, useReducer } from 'react';
 import type { SimulatedProvider, SimMultiplier } from '../providers/SimulatedProvider';
+import { t } from '../i18n';
 
 const MULTIPLIERS: SimMultiplier[] = [1, 4, 16];
 
@@ -16,11 +17,11 @@ export function SimControls({ provider }: { provider: SimulatedProvider }) {
   const multiplier = provider.getMultiplier();
 
   return (
-    <div className="sim-controls" aria-label="Szimuláció vezérlés">
+    <div className="sim-controls" aria-label={t('sim.controls')}>
       <button
         type="button"
         className="sim-button"
-        aria-label={playing ? 'Szünet' : 'Lejátszás'}
+        aria-label={playing ? t('sim.pause') : t('sim.play')}
         onClick={() => (playing ? provider.pause() : provider.play())}
       >
         {playing ? '⏸' : '▶'}
@@ -28,7 +29,7 @@ export function SimControls({ provider }: { provider: SimulatedProvider }) {
       <button
         type="button"
         className="sim-button"
-        aria-label="Újraindítás"
+        aria-label={t('sim.restart')}
         onClick={() => provider.restart()}
       >
         ⟲
@@ -49,7 +50,7 @@ export function SimControls({ provider }: { provider: SimulatedProvider }) {
         min={0}
         max={1000}
         value={Math.round(provider.getFraction() * 1000)}
-        aria-label="Útvonal pozíció"
+        aria-label={t('sim.scrub')}
         onChange={(e) => provider.scrubTo(Number(e.target.value) / 1000)}
       />
     </div>

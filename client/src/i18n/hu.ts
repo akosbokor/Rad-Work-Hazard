@@ -39,6 +39,15 @@ export const hu = {
   'debug.connection': 'Kapcsolat',
   'debug.none': '—',
 
+  // Drive screen + simulation controls
+  'drive.followOn': 'Követés: be',
+  'drive.followOff': 'Követés: ki',
+  'sim.controls': 'Szimuláció vezérlés',
+  'sim.play': 'Lejátszás',
+  'sim.pause': 'Szünet',
+  'sim.restart': 'Újraindítás',
+  'sim.scrub': 'Útvonal pozíció',
+
   // Units
   'unit.m': 'm',
   'unit.kmh': 'km/h',

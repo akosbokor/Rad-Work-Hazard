@@ -35,6 +35,15 @@ export const en: Record<I18nKey, string> = {
   'debug.connection': 'Connection',
   'debug.none': '—',
 
+  // Drive screen + simulation controls
+  'drive.followOn': 'Follow: on',
+  'drive.followOff': 'Follow: off',
+  'sim.controls': 'Simulation controls',
+  'sim.play': 'Play',
+  'sim.pause': 'Pause',
+  'sim.restart': 'Restart',
+  'sim.scrub': 'Route position',
+
   // Units
   'unit.m': 'm',
   'unit.kmh': 'km/h',

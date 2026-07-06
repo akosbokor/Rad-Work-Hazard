@@ -12,6 +12,7 @@ import { SimControls } from './SimControls';
 import { AlertOverlay } from './AlertOverlay';
 import { DebugDrawer } from './DebugDrawer';
 import { useWakeLock } from './useWakeLock';
+import { t } from '../i18n';
 
 const FETCH_RADIUS_M = 5000;
 const REFETCH_INTERVAL_MS = 30_000;
@@ -166,7 +167,7 @@ export function DriveScreen({ provider }: { provider: PositionProvider }) {
         className={`follow-toggle ${follow ? 'on' : ''}`}
         onClick={() => setFollow((v) => !v)}
       >
-        {follow ? 'Követés: be' : 'Követés: ki'}
+        {follow ? t('drive.followOn') : t('drive.followOff')}
       </button>
       {provider instanceof SimulatedProvider && <SimControls provider={provider} />}
       <AlertOverlay />
