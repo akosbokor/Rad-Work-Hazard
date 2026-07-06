@@ -10,6 +10,7 @@
   },
   "dependencies": {
     "@m1/shared": "*",
+    "@turf/turf": "^7.3.5",
     "cors": "^2",
     "express": "^4.21"
   },

@@ -1,0 +1,53 @@
+[
+  {
+    "id": "m1-construction",
+    "type": "construction",
+    "severity": "danger",
+    "active": true,
+    "geometry": {
+      "type": "LineString",
+      "coordinates": [
+        [18.155, 47.626],
+        [18.1729, 47.6289],
+        [18.1908, 47.6318],
+        [18.2087, 47.6347],
+        [18.2266, 47.6376],
+        [18.2445, 47.6405],
+        [18.2624, 47.6434],
+        [18.2803, 47.6463],
+        [18.2982, 47.6492],
+        [18.316, 47.652]
+      ]
+    },
+    "bufferMeters": 60,
+    "direction": { "bearingDeg": 255, "toleranceDeg": 60, "bothWays": false },
+    "alertDistances": { "preWarn": 2000, "slowDown": 800 },
+    "speedLimitKmh": 80,
+    "message": {
+      "hu": "Útépítés az M1-esen Concó és Tata között — sávlezárás, 80 km/h.",
+      "en": "Roadworks on the M1 between Concó and Tata — lane closure, 80 km/h."
+    }
+  },
+  {
+    "id": "local-test",
+    "type": "construction",
+    "severity": "warning",
+    "active": true,
+    "geometry": {
+      "type": "LineString",
+      "coordinates": [
+        [19.04, 47.4979],
+        [19.041, 47.4985],
+        [19.042, 47.4991]
+      ]
+    },
+    "bufferMeters": 40,
+    "direction": { "bearingDeg": 45, "toleranceDeg": 90, "bothWays": true },
+    "alertDistances": { "preWarn": 300, "slowDown": 120 },
+    "speedLimitKmh": 30,
+    "message": {
+      "hu": "Teszt veszélyzóna a belvárosban — helyezd át a saját utcádra (lásd README).",
+      "en": "Local test hazard downtown — move it to your own street (see README)."
+    }
+  }
+]

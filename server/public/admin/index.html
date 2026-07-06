@@ -1,0 +1,348 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>M1 Figyelő — Hazard Admin</title>
+    <link
+      rel="stylesheet"
+      href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+    />
+    <style>
+      * { box-sizing: border-box; }
+      body {
+        margin: 0;
+        font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+        display: flex;
+        height: 100vh;
+        color: #1a1a1a;
+      }
+      #map { flex: 1; }
+      #panel {
+        width: 360px;
+        padding: 16px;
+        overflow-y: auto;
+        border-left: 1px solid #ddd;
+        background: #fafafa;
+      }
+      h1 { font-size: 16px; margin: 0 0 12px; }
+      h2 { font-size: 13px; margin: 18px 0 6px; text-transform: uppercase; color: #666; }
+      .haz {
+        padding: 8px;
+        border: 1px solid #ddd;
+        border-radius: 6px;
+        margin-bottom: 6px;
+        cursor: pointer;
+        background: #fff;
+        font-size: 13px;
+      }
+      .haz.sel { border-color: #2563eb; box-shadow: 0 0 0 2px #93c5fd; }
+      .haz .id { font-weight: 600; }
+      .haz .meta { color: #666; font-size: 12px; }
+      .haz .dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 4px; }
+      label { display: block; font-size: 12px; margin: 8px 0 2px; color: #444; }
+      input, select, textarea {
+        width: 100%; padding: 6px; font-size: 13px;
+        border: 1px solid #ccc; border-radius: 4px; font-family: inherit;
+      }
+      textarea { resize: vertical; }
+      .row { display: flex; gap: 8px; }
+      .row > div { flex: 1; }
+      button {
+        margin-top: 10px; padding: 8px 12px; font-size: 13px;
+        border: none; border-radius: 6px; cursor: pointer; color: #fff;
+      }
+      button.primary { background: #2563eb; }
+      button.warn { background: #d97706; }
+      button.danger { background: #dc2626; }
+      button.ghost { background: #6b7280; }
+      .btns { display: flex; gap: 8px; flex-wrap: wrap; }
+      #status { font-size: 12px; color: #059669; min-height: 16px; margin-top: 8px; }
+      .hint { font-size: 11px; color: #888; margin: 4px 0; }
+    </style>
+  </head>
+  <body>
+    <div id="map"></div>
+    <div id="panel">
+      <h1>M1 Figyelő — Hazard Admin</h1>
+
+      <h2>Hazards</h2>
+      <div id="list"></div>
+      <button class="ghost" id="reload">Reload list</button>
+
+      <h2>Draw centerline</h2>
+      <p class="hint">Click on the map to add points. Draw mode must be on.</p>
+      <div class="btns">
+        <button class="primary" id="draw">Start drawing</button>
+        <button class="ghost" id="clear">Clear points</button>
+      </div>
+      <p class="hint"><span id="ptcount">0</span> point(s)</p>
+
+      <h2>Fields</h2>
+      <div class="row">
+        <div>
+          <label>Type</label>
+          <select id="f-type">
+            <option>construction</option>
+            <option>accident</option>
+            <option>congestion</option>
+            <option>weather</option>
+          </select>
+        </div>
+        <div>
+          <label>Severity</label>
+          <select id="f-severity">
+            <option>info</option>
+            <option selected>warning</option>
+            <option>danger</option>
+          </select>
+        </div>
+      </div>
+      <div class="row">
+        <div>
+          <label>Buffer (m)</label>
+          <input id="f-buffer" type="number" value="50" />
+        </div>
+        <div>
+          <label>Active</label>
+          <select id="f-active">
+            <option value="true" selected>true</option>
+            <option value="false">false</option>
+          </select>
+        </div>
+      </div>
+      <div class="row">
+        <div>
+          <label>preWarn (m)</label>
+          <input id="f-prewarn" type="number" value="1000" />
+        </div>
+        <div>
+          <label>slowDown (m)</label>
+          <input id="f-slowdown" type="number" value="400" />
+        </div>
+      </div>
+      <div class="row">
+        <div>
+          <label>bearingDeg</label>
+          <input id="f-bearing" type="number" value="0" />
+        </div>
+        <div>
+          <label>bothWays</label>
+          <select id="f-bothways">
+            <option value="true" selected>true</option>
+            <option value="false">false</option>
+          </select>
+        </div>
+      </div>
+      <label>Message (hu)</label>
+      <textarea id="f-hu" rows="2"></textarea>
+      <label>Message (en)</label>
+      <textarea id="f-en" rows="2"></textarea>
+
+      <div class="btns">
+        <button class="primary" id="create">Create</button>
+        <button class="warn" id="toggle">Toggle active</button>
+        <button class="danger" id="delete">Delete</button>
+      </div>
+      <div id="status"></div>
+    </div>
+
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script>
+      const API = '/api/v1/hazards';
+      const map = L.map('map').setView([47.64, 18.24], 11);
+      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        attribution: '© OpenStreetMap',
+        maxZoom: 19,
+      }).addTo(map);
+
+      const SEV_COLOR = { info: '#2563eb', warning: '#d97706', danger: '#dc2626' };
+      let hazards = [];
+      let selectedId = null;
+      let drawing = false;
+      let drawPoints = []; // [lon, lat]
+      let drawLayer = L.layerGroup().addTo(map);
+      let hazardLayer = L.layerGroup().addTo(map);
+
+      function setStatus(msg, err) {
+        const el = document.getElementById('status');
+        el.textContent = msg;
+        el.style.color = err ? '#dc2626' : '#059669';
+      }
+
+      async function loadHazards() {
+        const res = await fetch(API);
+        const data = await res.json();
+        hazards = data.hazards;
+        renderList();
+        renderMap();
+      }
+
+      function renderList() {
+        const list = document.getElementById('list');
+        list.innerHTML = '';
+        hazards.forEach((h) => {
+          const div = document.createElement('div');
+          div.className = 'haz' + (h.id === selectedId ? ' sel' : '');
+          div.innerHTML =
+            '<div class="id"><span class="dot" style="background:' +
+            SEV_COLOR[h.severity] +
+            '"></span>' +
+            h.id +
+            '</div><div class="meta">' +
+            h.type +
+            ' · ' +
+            (h.active ? 'active' : 'inactive') +
+            ' · buffer ' +
+            h.bufferMeters +
+            'm</div>';
+          div.onclick = () => selectHazard(h.id);
+          list.appendChild(div);
+        });
+      }
+
+      function renderMap() {
+        hazardLayer.clearLayers();
+        hazards.forEach((h) => {
+          const latlngs = h.geometry.coordinates.map((c) => [c[1], c[0]]);
+          const line = L.polyline(latlngs, {
+            color: SEV_COLOR[h.severity],
+            weight: h.id === selectedId ? 7 : 4,
+            opacity: h.active ? 0.9 : 0.35,
+          });
+          line.on('click', () => selectHazard(h.id));
+          hazardLayer.addLayer(line);
+        });
+      }
+
+      function selectHazard(id) {
+        selectedId = id;
+        const h = hazards.find((x) => x.id === id);
+        if (h) {
+          document.getElementById('f-type').value = h.type;
+          document.getElementById('f-severity').value = h.severity;
+          document.getElementById('f-buffer').value = h.bufferMeters;
+          document.getElementById('f-active').value = String(h.active);
+          document.getElementById('f-prewarn').value = h.alertDistances.preWarn;
+          document.getElementById('f-slowdown').value = h.alertDistances.slowDown;
+          document.getElementById('f-bearing').value = h.direction.bearingDeg;
+          document.getElementById('f-bothways').value = String(h.direction.bothWays);
+          document.getElementById('f-hu').value = h.message.hu;
+          document.getElementById('f-en').value = h.message.en;
+        }
+        renderList();
+        renderMap();
+      }
+
+      function readForm() {
+        return {
+          type: document.getElementById('f-type').value,
+          severity: document.getElementById('f-severity').value,
+          active: document.getElementById('f-active').value === 'true',
+          bufferMeters: Number(document.getElementById('f-buffer').value),
+          alertDistances: {
+            preWarn: Number(document.getElementById('f-prewarn').value),
+            slowDown: Number(document.getElementById('f-slowdown').value),
+          },
+          direction: {
+            bearingDeg: Number(document.getElementById('f-bearing').value),
+            toleranceDeg: 60,
+            bothWays: document.getElementById('f-bothways').value === 'true',
+          },
+          message: {
+            hu: document.getElementById('f-hu').value,
+            en: document.getElementById('f-en').value,
+          },
+        };
+      }
+
+      // --- drawing ---
+      document.getElementById('draw').onclick = () => {
+        drawing = !drawing;
+        document.getElementById('draw').textContent = drawing
+          ? 'Stop drawing'
+          : 'Start drawing';
+        setStatus(drawing ? 'Draw mode ON — click the map.' : 'Draw mode off.');
+      };
+      document.getElementById('clear').onclick = () => {
+        drawPoints = [];
+        drawLayer.clearLayers();
+        document.getElementById('ptcount').textContent = '0';
+      };
+      map.on('click', (e) => {
+        if (!drawing) return;
+        drawPoints.push([e.latlng.lng, e.latlng.lat]);
+        document.getElementById('ptcount').textContent = String(drawPoints.length);
+        drawLayer.clearLayers();
+        drawLayer.addLayer(
+          L.polyline(
+            drawPoints.map((c) => [c[1], c[0]]),
+            { color: '#000', dashArray: '5,5', weight: 3 }
+          )
+        );
+        drawPoints.forEach((c) =>
+          drawLayer.addLayer(L.circleMarker([c[1], c[0]], { radius: 4, color: '#000' }))
+        );
+      });
+
+      // --- CRUD ---
+      document.getElementById('create').onclick = async () => {
+        if (drawPoints.length < 2) {
+          setStatus('Draw at least 2 points first.', true);
+          return;
+        }
+        const body = readForm();
+        body.geometry = { type: 'LineString', coordinates: drawPoints };
+        const res = await fetch(API + '?persist=true', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(body),
+        });
+        if (res.ok) {
+          const h = await res.json();
+          setStatus('Created ' + h.id);
+          document.getElementById('clear').click();
+          selectedId = h.id;
+          await loadHazards();
+        } else {
+          setStatus('Create failed: ' + (await res.text()), true);
+        }
+      };
+
+      document.getElementById('toggle').onclick = async () => {
+        if (!selectedId) return setStatus('Select a hazard first.', true);
+        const h = hazards.find((x) => x.id === selectedId);
+        const res = await fetch(API + '/' + selectedId + '?persist=true', {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ active: !h.active }),
+        });
+        if (res.ok) {
+          setStatus('Toggled active → ' + String(!h.active));
+          await loadHazards();
+        } else {
+          setStatus('Toggle failed', true);
+        }
+      };
+
+      document.getElementById('delete').onclick = async () => {
+        if (!selectedId) return setStatus('Select a hazard first.', true);
+        if (!confirm('Delete ' + selectedId + '?')) return;
+        const res = await fetch(API + '/' + selectedId + '?persist=true', {
+          method: 'DELETE',
+        });
+        if (res.ok) {
+          setStatus('Deleted ' + selectedId);
+          selectedId = null;
+          await loadHazards();
+        } else {
+          setStatus('Delete failed', true);
+        }
+      };
+
+      document.getElementById('reload').onclick = loadHazards;
+
+      loadHazards();
+    </script>
+  </body>
+</html>
