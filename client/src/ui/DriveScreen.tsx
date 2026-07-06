@@ -6,7 +6,9 @@ import type { Hazard, Severity } from '@m1/shared';
 import { useAppStore } from '../store';
 import { fetchHazardsNear, subscribeToStream } from '../api/client';
 import type { PositionProvider } from '../providers/types';
+import { SimulatedProvider } from '../providers/SimulatedProvider';
 import { StatusStrip } from './StatusStrip';
+import { SimControls } from './SimControls';
 
 const FETCH_RADIUS_M = 5000;
 const REFETCH_INTERVAL_MS = 30_000;
@@ -162,6 +164,7 @@ export function DriveScreen({ provider }: { provider: PositionProvider }) {
       >
         {follow ? 'Követés: be' : 'Követés: ki'}
       </button>
+      {provider instanceof SimulatedProvider && <SimControls provider={provider} />}
     </div>
   );
 }

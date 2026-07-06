@@ -68,6 +68,25 @@ body {
   cursor: default;
 }
 
+.mode-toggle {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  margin: 0 0 20px;
+  color: var(--muted);
+  font-size: 15px;
+  cursor: pointer;
+  min-height: 48px;
+}
+
+.mode-toggle input {
+  width: 20px;
+  height: 20px;
+  accent-color: var(--accent);
+  cursor: pointer;
+}
+
 /* --- Drive screen --- */
 .drive-screen {
   position: relative;
@@ -158,4 +177,44 @@ body {
 .follow-toggle.on {
   border-color: var(--accent);
   color: var(--accent);
+}
+
+/* --- Simulation transport controls --- */
+.sim-controls {
+  position: absolute;
+  bottom: 20px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 14px;
+  background: var(--panel);
+  backdrop-filter: blur(6px);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 12px;
+  max-width: calc(100% - 140px);
+}
+
+.sim-button {
+  background: transparent;
+  color: var(--text);
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  border-radius: 8px;
+  min-width: 48px;
+  min-height: 48px;
+  font-size: 16px;
+  cursor: pointer;
+}
+
+.sim-button.active {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.sim-scrub {
+  width: 140px;
+  accent-color: var(--accent);
+  cursor: pointer;
 }
