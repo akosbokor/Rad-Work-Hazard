@@ -18,7 +18,7 @@ Plan: `docs/plans/2026-07-06-road-hazard-poc.md` (v2, supersedes `implementation
 
 - ✅ **Phase 4 — alert UX** (commits `fce06b0`, `0011c4d`): full-screen overlay (amber APPROACHING → red SLOW_DOWN/IN_ZONE, live countdown, tap-to-ack, ≥48 px targets, reduced-motion), oscillator chime + Hungarian speechSynthesis (en fallback), vibration, HU/EN i18n with start-screen toggle, debug drawer, wake lock. Reviewer verified in Playwright: overlay at ~1922 m, correct spoken templates in lastSpoken, vibration [300,100,300], ack/re-escalation correct, admin deactivation cleared overlay in 13 ms. (Reviewer's structured output was garbled; real verdict recovered from its transcript — full pass + 2 nits.) Orchestrator applied nits in `0011c4d`: removed dead onEngineEvent scaffolding, moved last hardcoded strings to i18n.
 
-- ✅ **Phase 5 — demo polish** (commit `phase 5: demo polish`): full README (quick start incl. `/admin`, verified 5-step demo script, phone/LAN + HTTPS-secure-context + ngrok/cloudflared USER-run tunnel notes, how to move the `local-test` hazard, honest limitations, mock→real cloud future-work note); `qrcode` client dep + `QrJoin` corner QR on the start screen encoding `window.location.origin` with HU/EN caption. Verified end-to-end in Playwright: QR renders (data-URL, HU+EN captions), admin loads at :8080/admin, sim run IDLE→APPROACHING→SLOW_DOWN→IN_ZONE with spoken HU templates + vibration [300,100,300]. typecheck clean, 7/7 tests green, dev boots. **POC complete.**
+- ✅ **Phase 5 — demo polish** (commit `592e02c`): full README (quick start incl. `/admin`, verified 5-step demo script, phone/LAN + HTTPS-secure-context + ngrok/cloudflared USER-run tunnel notes, how to move the `local-test` hazard, honest limitations, mock→real cloud future-work note); `qrcode` client dep + `QrJoin` corner QR on the start screen encoding `window.location.origin` with HU/EN caption. Verified end-to-end in Playwright: QR renders (data-URL, HU+EN captions), admin loads at :8080/admin, sim run IDLE→APPROACHING→SLOW_DOWN→IN_ZONE with spoken HU templates + vibration [300,100,300]. typecheck clean, 7/7 tests green, dev boots. **POC complete.**
 
 ## In progress
 
@@ -30,11 +30,11 @@ Plan: `docs/plans/2026-07-06-road-hazard-poc.md` (v2, supersedes `implementation
 - Real-GPS acceptance can't run headless → Phase 2 fallback acceptance is seed-hazard rendering + live SSE updates; real GPS is a user field-test.
 - Hungarian speechSynthesis voice quality varies by device (POC caveat, not a blocker).
 
-## Next
+## Next (user steps)
 
-1. Phase 3 — alert engine, tests first (fable agent; vitest 7 scenarios authoritative).
-2. Phase 4 — alert UX (opus; verify via store signals + screenshots).
-3. Phase 5 — README/demo/QR polish, final e2e, tag `poc-v1`.
+1. Field test: open the app on a phone (see README phone-access section — HTTPS tunnel needed for real GPS) and walk/drive the `local-test` hazard after moving it near your address.
+2. Optional cloud deploy (Vercel client + Render/Fly server) per README — makes the QR-code join work for any stakeholder phone.
+3. Demo dry-run using the README's 5-step script (simulation is the demo; live GPS is the encore).
 
 ## Deferred nits (from phase reviews, non-blocking)
 
