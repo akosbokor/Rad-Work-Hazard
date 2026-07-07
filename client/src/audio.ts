@@ -1,13 +1,19 @@
+import type { HazardType } from '@m1/shared';
 import { useAppStore } from './store';
-import { getLang } from './i18n';
 
 /**
- * All non-visual driver feedback: chime, speech, vibration. Browsers gate audio
- * and speech behind a user gesture, so unlockAudio() MUST run on the Start tap.
+ * All non-visual driver feedback: chime, spoken alerts, vibration. Browsers
+ * gate audio behind a user gesture, so unlockAudio() MUST run on the Start tap.
  *
- * Machine-checkable signals: every speak() writes store.lastSpoken and every
- * vibrate() writes store.lastVibration BEFORE touching the (headless-voiceless)
- * platform APIs, so acceptance can assert on the call rather than the sound.
+ * Spoken alerts are pre-rendered English neural-TTS clips shipped in
+ * /audio/*.mp3 (fixed phrases per tier — the banner carries the exact
+ * numbers). speechSynthesis was dropped: its quality is capped by whatever
+ * voices the device has installed, which is unacceptably robotic on most.
+ *
+ * Machine-checkable signals: every speakAlert() writes store.lastSpoken (the
+ * clip transcript) and every vibrate() writes store.lastVibration BEFORE
+ * touching the (headless-silent) platform APIs, so acceptance can assert on
+ * the call rather than the sound.
  */
 
 let ctx: AudioContext | null = null;
@@ -28,24 +34,60 @@ function audioContext(): AudioContext | null {
   }
 }
 
+/** Alert clips: fixed phrase per (tier, hazard type). Files in client/public/audio/. */
+const CLIPS = {
+  'approaching-construction': 'Attention! Roadworks ahead.',
+  'approaching-accident': 'Attention! Accident ahead.',
+  'approaching-congestion': 'Attention! Traffic jam ahead.',
+  'approaching-weather': 'Attention! Severe weather ahead.',
+  slowdown: 'Slow down now!',
+} as const;
+type ClipName = keyof typeof CLIPS;
+
+const clipBuffers = new Map<ClipName, AudioBuffer>();
+
+async function loadClip(audio: AudioContext, name: ClipName): Promise<void> {
+  const res = await fetch(`/audio/${name}.mp3`);
+  if (!res.ok) return;
+  clipBuffers.set(name, await audio.decodeAudioData(await res.arrayBuffer()));
+}
+
 /**
- * Prime audio + speech on the Start gesture: resume (or create) the
- * AudioContext and push a silent utterance so the first real speak() is not
- * swallowed by the browser's autoplay policy.
+ * Prime audio on the Start gesture: resume (or create) the AudioContext so
+ * later playback isn't swallowed by the autoplay policy, and pre-decode the
+ * alert clips so the first alert plays with zero delay.
  */
 export function unlockAudio(): void {
-  audioContext();
-  try {
-    if ('speechSynthesis' in window) {
-      const primer = new SpeechSynthesisUtterance('');
-      primer.volume = 0;
-      window.speechSynthesis.speak(primer);
-      // Nudge the async voice list to populate on browsers that lazy-load it.
-      window.speechSynthesis.getVoices();
-    }
-  } catch {
-    /* speech unavailable — visual + chime still cover the alert */
+  const audio = audioContext();
+  if (!audio) return;
+  for (const name of Object.keys(CLIPS) as ClipName[]) {
+    void loadClip(audio, name).catch(() => {
+      /* missing clip — visual + chime still cover the alert */
+    });
   }
+}
+
+function playClip(name: ClipName): void {
+  // Record the transcript first — this is the acceptance signal, independent
+  // of whether audio actually plays on this device.
+  useAppStore.setState({ lastSpoken: CLIPS[name] });
+  const audio = audioContext();
+  const buffer = clipBuffers.get(name);
+  if (!audio || !buffer) return;
+  try {
+    const src = audio.createBufferSource();
+    src.buffer = buffer;
+    src.connect(audio.destination);
+    // Give the chime a beat to finish before the voice starts.
+    src.start(audio.currentTime + 0.45);
+  } catch {
+    /* ignore — lastSpoken already recorded */
+  }
+}
+
+/** Speak the alert for a tier escalation using the pre-rendered clips. */
+export function speakAlert(tier: 'APPROACHING' | 'SLOW_DOWN', hazardType: HazardType): void {
+  playClip(tier === 'SLOW_DOWN' ? 'slowdown' : (`approaching-${hazardType}` as ClipName));
 }
 
 /** Short two-tone rising chime via a single oscillator + gain envelope. */
@@ -67,69 +109,6 @@ export function chime(): void {
     osc.stop(now + 0.42);
   } catch {
     /* ignore — a failed chime must never break the alert flow */
-  }
-}
-
-/**
- * Voice quality ranking. Devices ship several voices per language and
- * getVoices() order is arbitrary — the first match is often a legacy
- * robot voice. Prefer modern neural/enhanced voices and known-good names;
- * penalize the macOS novelty voices that would otherwise match English.
- */
-const GOOD_HINTS = ['natural', 'neural', 'premium', 'enhanced', 'siri', 'google', 'tünde', 'tunde', 'samantha'];
-const NOVELTY = ['albert', 'bad news', 'bahh', 'bells', 'boing', 'bubbles', 'cellos', 'good news', 'jester', 'organ', 'superstar', 'trinoids', 'whisper', 'wobble', 'zarvox', 'grandma', 'grandpa', 'rocko', 'shelley', 'flo', 'eddy', 'reed', 'sandy', 'junior', 'ralph', 'kathy', 'fred'];
-
-function voiceScore(v: SpeechSynthesisVoice, wanted: string): number {
-  const name = v.name.toLowerCase();
-  const lang = v.lang.toLowerCase();
-  if (!lang.startsWith(wanted)) return -1;
-  let score = 1;
-  if (NOVELTY.some((n) => name.includes(n))) return 0; // last resort only
-  score += 2;
-  if (GOOD_HINTS.some((h) => name.includes(h))) score += 4;
-  if (!v.localService) score += 1; // cloud voices (e.g. Google) are usually better
-  if (v.default) score += 1;
-  return score;
-}
-
-function pickVoice(wanted: 'hu' | 'en'): SpeechSynthesisVoice | null {
-  const voices = window.speechSynthesis.getVoices();
-  let best: SpeechSynthesisVoice | null = null;
-  let bestScore = -1;
-  for (const lang of wanted === 'hu' ? ['hu', 'en'] : ['en']) {
-    for (const v of voices) {
-      const s = voiceScore(v, lang);
-      if (s > bestScore) {
-        best = v;
-        bestScore = s;
-      }
-    }
-    if (best) return best; // only fall through to English if no hu voice at all
-  }
-  return best;
-}
-
-/** Speak text with the best available voice for the CURRENT language. */
-export function speak(text: string): void {
-  // Record the call first — this is the acceptance signal, independent of
-  // whether a voice actually exists on this device.
-  useAppStore.setState({ lastSpoken: text });
-  try {
-    if (!('speechSynthesis' in window)) return;
-    const lang = getLang();
-    const utter = new SpeechSynthesisUtterance(text);
-    const voice = pickVoice(lang);
-    if (voice) {
-      utter.voice = voice;
-      utter.lang = voice.lang;
-    } else {
-      utter.lang = lang === 'hu' ? 'hu-HU' : 'en-US';
-    }
-    utter.rate = 1;
-    window.speechSynthesis.cancel();
-    window.speechSynthesis.speak(utter);
-  } catch {
-    /* ignore — lastSpoken already recorded */
   }
 }
 

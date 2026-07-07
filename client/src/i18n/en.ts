@@ -16,10 +16,6 @@ export const en: Record<I18nKey, string> = {
   'hazard.congestion': 'Congestion',
   'hazard.weather': 'Weather hazard',
 
-  // Spoken alert templates
-  'alert.approaching': 'Caution. {hazard} in {distance} metres.',
-  'alert.slowDown': 'Slow down to {speed}. {hazard} in {distance} metres.',
-
   // Alert overlay
   'overlay.approaching': 'Hazard ahead',
   'overlay.slowDown': 'Slow down!',

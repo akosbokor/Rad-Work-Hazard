@@ -20,10 +20,6 @@ export const hu = {
   'hazard.congestion': 'Torlódás',
   'hazard.weather': 'Időjárási veszély',
 
-  // Spoken alert templates (distance/speed placeholders)
-  'alert.approaching': 'Figyelem. {hazard} {distance} méterre.',
-  'alert.slowDown': 'Lassítson {speed}-ra. {hazard} {distance} méterre.',
-
   // Alert overlay
   'overlay.approaching': 'Veszély előttünk',
   'overlay.slowDown': 'Lassítson!',

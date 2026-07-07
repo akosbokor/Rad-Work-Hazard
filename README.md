@@ -62,10 +62,10 @@ Budapest side of the M1 heading toward Győr. Use the transport controls at the 
 raise playback to **×4** (or ×16) — buttons are `⏸` play/pause, `⟲` restart, `×1 / ×4 /
 ×16`, and a scrub slider.
 
-- At ~**2 km** the phone chimes and an amber banner takes the screen: **"Veszély
-  előttünk"** with a live distance countdown.
+- At ~**2 km** the phone chimes, an amber banner takes the screen: **"Veszély
+  előttünk"** with a live distance countdown, and a voice says *"Attention! Roadworks ahead."*
 - At ~**800 m** it escalates to red **"Lassítson!"**, vibrates, and speaks
-  *"Lassítson 80-ra. Útépítés … méterre."*
+  *"Slow down now!"*
 - Inside the zone it shows **"Veszélyzónában"** and the advised **80 km/h** limit.
 - Past the works it **auto-clears** back to the map.
 
@@ -184,8 +184,10 @@ these proactively; several are exactly the argument for an eventual native app.
   still trigger. Acceptable for a POC.
 - **Battery.** High-accuracy `watchPosition` plus a live map redraw is power-hungry — fine
   for a demo, another native-app motivation.
-- **Speech-synthesis quality.** Hungarian TTS voice quality varies by device, so speech is
-  always paired with the visual banner and the chime.
+- **Spoken alerts are English-only, pre-rendered.** Fixed neural-TTS clips in
+  `client/public/audio/` (the banner carries the exact numbers and stays bilingual).
+  Browser speech synthesis was dropped — its quality depends on device-installed voices
+  and is unacceptably robotic on most. Regenerate clips with `edge-tts` if phrases change.
 - **Demo insurance.** Never demo on live GPS alone. **Simulation is the demo; live GPS is
   the encore.**
 
