@@ -2,7 +2,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import express from 'express';
 import cors from 'cors';
-import type { Hazard } from '@m1/shared';
+import type { Hazard, Severity, VehicleFix } from '@m1/shared';
 import * as store from './store.js';
 import { addClient, removeClient, broadcast } from './sse.js';
 
@@ -89,6 +89,55 @@ app.delete('/api/v1/hazards/:id', (req, res) => {
   }
   if (shouldPersist(req)) store.persist();
   broadcast({ type: 'hazard_deleted', hazardId: req.params.id });
+  res.status(204).end();
+});
+
+// --- Vehicles (live tracker) ---
+// Latest fix per vehicle id in a simple in-memory Map; entries older than 30 s
+// are treated as stale (dropped on GET).
+const VEHICLE_TTL_MS = 30_000;
+const vehicles = new Map<string, VehicleFix>();
+
+app.post('/api/v1/vehicles', (req, res) => {
+  const b = req.body as Partial<VehicleFix>;
+  if (typeof b.id !== 'string' || !b.id || !Number.isFinite(b.lat) || !Number.isFinite(b.lon)) {
+    res.status(400).json({ error: 'id (string) and finite lat/lon are required' });
+    return;
+  }
+  const vehicle: VehicleFix = {
+    id: b.id,
+    lat: b.lat as number,
+    lon: b.lon as number,
+    speedKmh: Number.isFinite(b.speedKmh) ? (b.speedKmh as number) : null,
+    headingDeg: Number.isFinite(b.headingDeg) ? (b.headingDeg as number) : null,
+    timestamp: Number.isFinite(b.timestamp) ? (b.timestamp as number) : Date.now(),
+  };
+  vehicles.set(vehicle.id, vehicle);
+  broadcast({ type: 'vehicle_position', vehicle });
+  res.status(204).end();
+});
+
+app.get('/api/v1/vehicles', (_req, res) => {
+  const cutoff = Date.now() - VEHICLE_TTL_MS;
+  const list: VehicleFix[] = [];
+  for (const [id, v] of vehicles) {
+    if (v.timestamp < cutoff) vehicles.delete(id);
+    else list.push(v);
+  }
+  res.json({ vehicles: list });
+});
+
+// --- Admin → driver notification (broadcast only, no storage) ---
+app.post('/api/v1/notify', (req, res) => {
+  const b = req.body as { text?: unknown; severity?: unknown };
+  const text = typeof b.text === 'string' ? b.text.trim() : '';
+  if (!text || text.length > 200) {
+    res.status(400).json({ error: 'text is required and must be 1–200 characters' });
+    return;
+  }
+  const severity: Severity =
+    b.severity === 'info' || b.severity === 'danger' ? b.severity : 'warning';
+  broadcast({ type: 'admin_message', message: { text, severity, timestamp: Date.now() } });
   res.status(204).end();
 });
 

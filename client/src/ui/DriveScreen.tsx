@@ -5,11 +5,13 @@ import { buffer, distance as turfDistance, lineString, point } from '@turf/turf'
 import type { Hazard, Severity } from '@m1/shared';
 import { useAppStore } from '../store';
 import { fetchHazardsNear, subscribeToStream } from '../api/client';
+import { startVehicleReporter, stopVehicleReporter } from '../api/vehicleReporter';
 import type { PositionProvider } from '../providers/types';
 import { SimulatedProvider } from '../providers/SimulatedProvider';
 import { StatusStrip } from './StatusStrip';
 import { SimControls } from './SimControls';
 import { AlertOverlay } from './AlertOverlay';
+import { AdminMessageToast } from './AdminMessageToast';
 import { DebugDrawer } from './DebugDrawer';
 import { useWakeLock } from './useWakeLock';
 import { t } from '../i18n';
@@ -92,6 +94,7 @@ export function DriveScreen({ provider }: { provider: PositionProvider }) {
     );
 
     provider.start((fix) => useAppStore.getState().pushFix(fix));
+    startVehicleReporter();
 
     const first = useAppStore.getState().lastFix;
     void refetch(first?.lat ?? DEFAULT_CENTER[0], first?.lon ?? DEFAULT_CENTER[1]);
@@ -122,6 +125,7 @@ export function DriveScreen({ provider }: { provider: PositionProvider }) {
       clearInterval(interval);
       unsub();
       stream.close();
+      stopVehicleReporter();
       provider.stop();
     };
   }, [provider]);
@@ -170,6 +174,7 @@ export function DriveScreen({ provider }: { provider: PositionProvider }) {
         {follow ? t('drive.followOn') : t('drive.followOff')}
       </button>
       {provider instanceof SimulatedProvider && <SimControls provider={provider} />}
+      <AdminMessageToast />
       <AlertOverlay />
       <DebugDrawer />
     </div>

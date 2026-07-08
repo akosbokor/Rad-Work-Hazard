@@ -8,6 +8,7 @@ import { DriveScreen } from './ui/DriveScreen';
 import { QrJoin } from './ui/QrJoin';
 import { useAppStore } from './store';
 import { unlockAudio } from './audio';
+import { requestNotificationPermission } from './notify';
 import { getLang, setLang, t, type Lang } from './i18n';
 
 const SIM_SPEED_KMH = 110;
@@ -34,6 +35,7 @@ export function App() {
   function handleStart(): void {
     // Must run inside the Start gesture to satisfy autoplay/speech policies.
     unlockAudio();
+    requestNotificationPermission();
     if (providerMode === 'sim') {
       setProvider(new SimulatedProvider(ROUTE_TOWARD_GYOR, SIM_SPEED_KMH));
       setPhase('drive');

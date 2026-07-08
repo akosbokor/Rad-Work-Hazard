@@ -41,6 +41,9 @@ export const en: Record<I18nKey, string> = {
   'sim.restart': 'Restart',
   'sim.scrub': 'Route position',
 
+  // Admin message toast
+  'toast.dismiss': 'Dismiss',
+
   // Units
   'unit.m': 'm',
   'unit.kmh': 'km/h',

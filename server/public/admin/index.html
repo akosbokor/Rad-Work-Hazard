@@ -59,6 +59,13 @@
       .btns { display: flex; gap: 8px; flex-wrap: wrap; }
       #status { font-size: 12px; color: #059669; min-height: 16px; margin-top: 8px; }
       .hint { font-size: 11px; color: #888; margin: 4px 0; }
+      .veh-marker { text-align: center; pointer-events: none; }
+      .veh-arrow { font-size: 20px; line-height: 1; color: #0ea5e9; text-shadow: 0 0 2px #000, 0 0 2px #000; }
+      .veh-label {
+        display: inline-block; margin-top: 1px; padding: 1px 5px;
+        font-size: 10px; font-weight: 600; white-space: nowrap;
+        background: rgba(0,0,0,0.72); color: #fff; border-radius: 4px;
+      }
     </style>
   </head>
   <body>
@@ -149,6 +156,17 @@
         <button class="danger" id="delete">Delete</button>
       </div>
       <div id="status"></div>
+
+      <h2>Message to drivers</h2>
+      <label>Text</label>
+      <input id="n-text" type="text" maxlength="200" placeholder="e.g. Fokozott ellenőrzés az M1-en" />
+      <label>Severity</label>
+      <select id="n-severity">
+        <option value="info">info</option>
+        <option value="warning" selected>warning</option>
+        <option value="danger">danger</option>
+      </select>
+      <button class="primary" id="notify">Send</button>
     </div>
 
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
@@ -167,6 +185,9 @@
       let drawPoints = []; // [lon, lat]
       let drawLayer = L.layerGroup().addTo(map);
       let hazardLayer = L.layerGroup().addTo(map);
+      let vehicleLayer = L.layerGroup().addTo(map);
+      const vehicles = {}; // id → { marker, lastSeen }
+      const VEHICLE_TTL_MS = 30000;
 
       function setStatus(msg, err) {
         const el = document.getElementById('status');
@@ -388,6 +409,93 @@
       };
 
       document.getElementById('reload').onclick = loadHazards;
+
+      // --- Live vehicles ---
+      function vehicleIcon(v) {
+        const rot = v.headingDeg == null ? 0 : v.headingDeg;
+        const suffix = String(v.id).replace(/^veh-/, '');
+        const speed = v.speedKmh == null ? '--' : Math.round(v.speedKmh);
+        return L.divIcon({
+          className: 'veh-marker',
+          html:
+            '<div class="veh-arrow" style="transform: rotate(' + rot + 'deg)">▲</div>' +
+            '<div class="veh-label">' + suffix + ' · ' + speed + ' km/h</div>',
+          iconSize: [48, 40],
+          iconAnchor: [24, 20],
+        });
+      }
+
+      function upsertVehicle(v) {
+        if (!v || typeof v.id !== 'string') return;
+        const latlng = [v.lat, v.lon];
+        let entry = vehicles[v.id];
+        if (!entry) {
+          const marker = L.marker(latlng, { icon: vehicleIcon(v) });
+          vehicleLayer.addLayer(marker);
+          entry = vehicles[v.id] = { marker: marker };
+        } else {
+          entry.marker.setLatLng(latlng);
+          entry.marker.setIcon(vehicleIcon(v));
+        }
+        entry.lastSeen = Date.now();
+      }
+
+      // Prune markers with no update for 30 s.
+      setInterval(function () {
+        const cutoff = Date.now() - VEHICLE_TTL_MS;
+        Object.keys(vehicles).forEach(function (id) {
+          if (vehicles[id].lastSeen < cutoff) {
+            vehicleLayer.removeLayer(vehicles[id].marker);
+            delete vehicles[id];
+          }
+        });
+      }, 5000);
+
+      // Initial snapshot.
+      fetch('/api/v1/vehicles')
+        .then((r) => r.json())
+        .then((d) => (d.vehicles || []).forEach(upsertVehicle))
+        .catch(() => {});
+
+      // --- SSE: vehicles + hazard changes ---
+      const es = new EventSource('/api/v1/stream');
+      es.onmessage = (msg) => {
+        let ev;
+        try {
+          ev = JSON.parse(msg.data);
+        } catch (_) {
+          return; // keep-alive comments / malformed frames
+        }
+        if (ev.type === 'vehicle_position') {
+          upsertVehicle(ev.vehicle);
+          return;
+        }
+        if (
+          ev.type === 'hazard_created' ||
+          ev.type === 'hazard_updated' ||
+          ev.type === 'hazard_deleted'
+        ) {
+          loadHazards();
+        }
+      };
+
+      // --- Message to drivers ---
+      document.getElementById('notify').onclick = async () => {
+        const text = document.getElementById('n-text').value.trim();
+        if (!text) return setStatus('Enter a message first.', true);
+        const severity = document.getElementById('n-severity').value;
+        const res = await fetch('/api/v1/notify', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ text: text, severity: severity }),
+        });
+        if (res.ok) {
+          setStatus('Message sent to drivers.');
+          document.getElementById('n-text').value = '';
+        } else {
+          setStatus('Notify failed: ' + (await res.text()), true);
+        }
+      };
 
       loadHazards();
     </script>

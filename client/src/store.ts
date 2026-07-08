@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import type { AlertState, Hazard, HazardStreamEvent, PositionFix } from '@m1/shared';
+import type { AlertState, Hazard, HazardStreamEvent, PositionFix, Severity } from '@m1/shared';
 
 const FIX_HISTORY_CAP = 100;
 
@@ -23,6 +23,8 @@ export interface AppState {
   lastSpoken: string | null;
   lastVibration: number[] | null;
   acknowledged: Record<string, number>;
+  // Additive: latest admin→driver broadcast (null when none/dismissed).
+  adminMessage: { text: string; severity: Severity; timestamp: number } | null;
 }
 
 export interface AppActions {
@@ -34,6 +36,8 @@ export interface AppActions {
   applyStreamEvent: (event: HazardStreamEvent) => void;
   setConnection: (connection: AppState['connection']) => void;
   setProviderMode: (mode: AppState['providerMode']) => void;
+  /** Clear the current admin message (dismiss / auto-dismiss). */
+  dismissAdminMessage: () => void;
 }
 
 export type AppStore = AppState & AppActions;
@@ -49,6 +53,7 @@ const initialState: AppState = {
   lastSpoken: null,
   lastVibration: null,
   acknowledged: {},
+  adminMessage: null,
 };
 
 /** Upsert an active hazard; a non-active one is removed (active-only invariant). */
@@ -77,13 +82,17 @@ export const useAppStore = create<AppStore>((set) => ({
           return { hazards: upsertHazard(state.hazards, event.hazard) };
         case 'hazard_deleted':
           return { hazards: state.hazards.filter((h) => h.id !== event.hazardId) };
+        case 'admin_message':
+          return { adminMessage: event.message };
         default:
+          // vehicle_position (admin-only concern) and unknown events are inert here.
           return {};
       }
     }),
 
   setConnection: (connection) => set({ connection }),
   setProviderMode: (providerMode) => set({ providerMode }),
+  dismissAdminMessage: () => set({ adminMessage: null }),
 }));
 
 // Dev-only: expose the store for machine-checkable acceptance (page.evaluate on

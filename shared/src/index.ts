@@ -27,6 +27,17 @@ export interface PositionFix {
 
 export type AlertState = 'IDLE' | 'APPROACHING' | 'SLOW_DOWN' | 'IN_ZONE' | 'PASSED';
 
+export interface VehicleFix {
+  id: string;
+  lat: number;
+  lon: number;
+  speedKmh: number | null;
+  headingDeg: number | null;
+  timestamp: number;
+}
+
 export type HazardStreamEvent =
   | { type: 'hazard_created' | 'hazard_updated'; hazard: Hazard }
-  | { type: 'hazard_deleted'; hazardId: string };
+  | { type: 'hazard_deleted'; hazardId: string }
+  | { type: 'vehicle_position'; vehicle: VehicleFix }
+  | { type: 'admin_message'; message: { text: string; severity: Severity; timestamp: number } };

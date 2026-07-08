@@ -3,6 +3,8 @@ import { AlertEngine } from './engine/alertEngine';
 import type { EngineEvent } from './engine/alertEngine';
 import { useAppStore } from './store';
 import { chime, speakAlert, vibrate } from './audio';
+import { showNotification } from './notify';
+import { getLang } from './i18n';
 
 /** Escalation vibration pattern (ms on/off/on). */
 const VIBRATION_PATTERN = [300, 100, 300];
@@ -29,6 +31,11 @@ function routeFeedback(event: EngineEvent): void {
   chime();
   speakAlert(event.to, hazard.type);
   vibrate(VIBRATION_PATTERN);
+  // On the SLOW_DOWN escalation also raise a system notification (works on
+  // Android Chrome / desktop; silently no-ops elsewhere).
+  if (event.to === 'SLOW_DOWN') {
+    showNotification('M1 Figyelő', hazard.message[getLang()]);
+  }
 }
 
 /**

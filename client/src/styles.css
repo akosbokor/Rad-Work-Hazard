@@ -161,6 +161,51 @@ body {
   filter: brightness(0.7) invert(0.92) hue-rotate(180deg) saturate(0.6);
 }
 
+/* --- Admin message toast --- */
+.admin-toast {
+  position: absolute;
+  top: 52px;
+  left: 12px;
+  right: 12px;
+  z-index: 1600;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 10px 10px 16px;
+  border-radius: 10px;
+  color: #0a0c10;
+  font-size: 15px;
+  font-weight: 600;
+  box-shadow: 0 6px 22px rgba(0, 0, 0, 0.45);
+}
+.admin-toast.sev-info {
+  background: var(--sev-info);
+  color: #fff;
+}
+.admin-toast.sev-warning {
+  background: var(--sev-warning);
+}
+.admin-toast.sev-danger {
+  background: var(--sev-danger);
+  color: #fff;
+}
+.admin-toast-text {
+  flex: 1;
+  min-width: 0;
+}
+.admin-toast-dismiss {
+  flex: none;
+  min-width: 48px;
+  min-height: 48px;
+  border: none;
+  border-radius: 8px;
+  background: rgba(0, 0, 0, 0.18);
+  color: inherit;
+  font-size: 26px;
+  line-height: 1;
+  cursor: pointer;
+}
+
 /* --- Status strip --- */
 .status-strip {
   position: absolute;

@@ -45,6 +45,9 @@ export const hu = {
   'sim.restart': 'Újraindítás',
   'sim.scrub': 'Útvonal pozíció',
 
+  // Admin message toast
+  'toast.dismiss': 'Bezárás',
+
   // Units
   'unit.m': 'm',
   'unit.kmh': 'km/h',
