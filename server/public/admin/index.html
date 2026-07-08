@@ -61,11 +61,12 @@
       .hint { font-size: 11px; color: #888; margin: 4px 0; }
       .veh-marker { text-align: center; pointer-events: none; }
       .veh-arrow { font-size: 20px; line-height: 1; color: #0ea5e9; text-shadow: 0 0 2px #000, 0 0 2px #000; }
-      .veh-label {
-        display: inline-block; margin-top: 1px; padding: 1px 5px;
-        font-size: 10px; font-weight: 600; white-space: nowrap;
-        background: rgba(0,0,0,0.72); color: #fff; border-radius: 4px;
+      .veh-tip {
+        padding: 1px 6px; font-size: 10px; font-weight: 600;
+        background: rgba(0,0,0,0.72); color: #fff;
+        border: none; border-radius: 4px; box-shadow: none;
       }
+      .veh-tip::before { display: none; }
     </style>
   </head>
   <body>
@@ -411,18 +412,20 @@
       document.getElementById('reload').onclick = loadHazards;
 
       // --- Live vehicles ---
+      // The icon is ONLY the arrow, anchored at its own center, so the glyph
+      // sits exactly on the reported coordinate. The speed lives in a tooltip.
       function vehicleIcon(v) {
         const rot = v.headingDeg == null ? 0 : v.headingDeg;
-        const suffix = String(v.id).replace(/^veh-/, '');
-        const speed = v.speedKmh == null ? '--' : Math.round(v.speedKmh);
         return L.divIcon({
           className: 'veh-marker',
-          html:
-            '<div class="veh-arrow" style="transform: rotate(' + rot + 'deg)">▲</div>' +
-            '<div class="veh-label">' + suffix + ' · ' + speed + ' km/h</div>',
-          iconSize: [48, 40],
-          iconAnchor: [24, 20],
+          html: '<div class="veh-arrow" style="transform: rotate(' + rot + 'deg)">▲</div>',
+          iconSize: [20, 20],
+          iconAnchor: [10, 10],
         });
+      }
+
+      function vehicleSpeedText(v) {
+        return (v.speedKmh == null ? '--' : Math.round(v.speedKmh)) + ' km/h';
       }
 
       function upsertVehicle(v) {
@@ -430,12 +433,22 @@
         const latlng = [v.lat, v.lon];
         let entry = vehicles[v.id];
         if (!entry) {
-          const marker = L.marker(latlng, { icon: vehicleIcon(v) });
+          const marker = L.marker(latlng, {
+            icon: vehicleIcon(v),
+            title: v.id, // full id on hover, for debugging only
+          });
+          marker.bindTooltip(vehicleSpeedText(v), {
+            permanent: true,
+            direction: 'bottom',
+            offset: [0, 10],
+            className: 'veh-tip',
+          });
           vehicleLayer.addLayer(marker);
           entry = vehicles[v.id] = { marker: marker };
         } else {
           entry.marker.setLatLng(latlng);
           entry.marker.setIcon(vehicleIcon(v));
+          entry.marker.setTooltipContent(vehicleSpeedText(v));
         }
         entry.lastSeen = Date.now();
       }
