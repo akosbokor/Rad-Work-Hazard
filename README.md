@@ -1,45 +1,194 @@
 # M1 Figyelő — Road Hazard Alert POC
 
-A phone-browser web app that detects proximity to a hazardous road segment (an M1
-motorway construction zone), fetches live hazard data from a mock cloud API, and warns
-the driver in time to slow down. **Fully demonstrable at a desk via route simulation —
-no real driving required.**
+Warns a driver, from a plain phone browser, that they are approaching a hazardous road
+segment (the M1 motorway construction zone). The client fetches live hazard data from a
+cloud API and escalates through chime → banner → voice → vibration in time to slow down.
+This repository covers both sides of the pipeline: the **browser app** and the **mock
+cloud** it talks to — architected so the mock swaps for the real cloud with zero client
+change. **Fully demonstrable at a desk via route simulation — no real driving required.**
 
-The app is bilingual (Hungarian primary, English fallback — toggle on the start screen)
-and runs entirely in the browser. The "cloud" is a local Express mock that behaves like
-the future real one; the client already speaks the exact radius-query contract the real
-cloud will expose.
+## Repository layout
 
-## Requirements
+```
+road-hazard-alert/
+├── package.json                  ← npm workspaces root; `npm run dev` starts everything
+├── CLAUDE.md                     ← architecture rules & conventions (units, lon/lat, purity)
+├── PROGRESS.md                   ← build log: what is done, known issues, next steps
+│
+├── shared/                       ← @m1/shared — types used by BOTH sides (no build step)
+│   └── src/index.ts              ← Hazard, PositionFix, AlertState, SSE event types
+│
+├── server/                       ← @m1/server — the MOCK CLOUD (Express, runs under tsx)
+│   ├── src/index.ts              ← REST routes + SSE endpoint + static admin panel
+│   ├── src/store.ts              ← in-memory hazard store + turf radius filtering
+│   ├── src/sse.ts                ← SSE hub: client registry, broadcast, 25 s keep-alive
+│   ├── data/hazards.json         ← seed hazards (real M1 geometry + walkable local-test)
+│   └── public/admin/             ← demo admin panel: draw / toggle hazards on a map
+│
+├── client/                       ← @m1/client — the BROWSER APP (Vite + React + Leaflet)
+│   ├── public/audio/             ← pre-rendered neural-TTS alert clips (en-US-AriaNeural)
+│   └── src/
+│       ├── engine/               ← ★ pure TypeScript alert engine — no React, no DOM,
+│       │   ├── alertEngine.ts       no fetch, no timers, no Date.now; 7-scenario
+│       │   ├── geo.ts               vitest suite is the authoritative acceptance
+│       │   └── __tests__/
+│       ├── providers/            ← position sources behind ONE interface
+│       │   ├── RealGpsProvider.ts   (watchPosition, m/s→km/h, accuracy filter)
+│       │   ├── SimulatedProvider.ts (route playback: ×1/×4/×16, scrub, restart)
+│       │   └── routes.ts            (demo route derived from the M1 centerline)
+│       ├── alerting.ts           ← the ONLY module allowed to touch the engine
+│       ├── api/client.ts         ← radius fetch + SSE subscription (auto-reconnect)
+│       ├── store.ts              ← zustand store (single source of truth for the UI)
+│       ├── audio.ts              ← chime (oscillator) + clip playback + vibration
+│       ├── i18n/                 ← hu.ts / en.ts flat string maps (UI is bilingual)
+│       └── ui/                   ← DriveScreen (map), AlertOverlay, SimControls,
+│                                    StatusStrip, DebugDrawer
+│
+└── docs/plans/                   ← reviewed implementation plan (v2) the build followed
+```
 
-- Node ≥ 20 (dev machine uses v25.2.1)
-- npm (workspaces — no extra global tooling)
+## System architecture
+
+```
+┌───────────────────────────────────────────────┐          HTTP / SSE (JSON, Vite proxies /api → :8080)
+│  PHONE / BROWSER  —  client/  (:5173)         │
+│                                               │   GET /api/v1/hazards?lat&lon&radius
+│  ┌─────────────────────────┐                  │ ────────────────────────────────────►  ┌──────────────────────────────────┐
+│  │     PositionProvider    │                  │                                        │  MOCK CLOUD — server/  (:8080)   │
+│  │  RealGpsProvider (GPS)  │                  │   SSE  GET /api/v1/stream              │                                  │
+│  │  SimulatedProvider (sim)│                  │ ◄────────────────────────────────────  │  in-memory store                 │
+│  └───────────┬─────────────┘                  │      hazard_created/updated/deleted    │    ▲ seeded from data/hazards.json
+│              │ PositionFix                    │                                        │  turf radius filter (meters)     │
+│              │ {lat, lon, speedKmh,           │                                        │  SSE hub (25 s keep-alive)       │
+│              │  headingDeg, accuracy, ts}     │                                        │                                  │
+│              ▼                                │                                        │  ┌────────────────────────────┐  │
+│  ┌─────────────────────────┐                  │        POST / PATCH / DELETE           │  │  /admin  (plain HTML+JS)   │  │
+│  │  alerting.ts  (glue)    │                  │      ┌────────────────────────────────►│  │  draw centerline, toggle   │  │
+│  │  ┌───────────────────┐  │                  │      │  (admin browser tab)            │  │  active, create/delete     │  │
+│  │  │   AlertEngine     │  │                  │      │                                 │  └────────────────────────────┘  │
+│  │  │  pure state       │  │                  │      │                                 └──────────────────────────────────┘
+│  │  │  machine          │  │                  │      │
+│  │  └───────────────────┘  │                  │      │   Every mutation is broadcast over SSE →
+│  └───────────┬─────────────┘                  │      │   every connected phone updates in ~1–2 s.
+│              ▼ writes hazardStates,           │      │
+│      ┌───────────────┐  activeAlert           │      │
+│      │ zustand store │◄────────────────┐      │      │
+│      └───────┬───────┘   active-only   │      │      │
+│              ▼            hazards      │      │      │
+│   Leaflet map · AlertOverlay ·  api/client.ts ├──────┘
+│   audio clips · vibration · DebugDrawer      │
+└───────────────────────────────────────────────┘
+```
+
+## How an alert happens (data flow)
+
+1. **A fix arrives.** The active `PositionProvider` (real GPS or simulated playback —
+   selected by the "Demó mód" toggle, identical downstream) emits a `PositionFix` about
+   once per second into the store.
+2. **The engine evaluates.** `alerting.ts` feeds every fix to `AlertEngine.update()`. Per
+   hazard, the engine measures the distance from the fix to the hazard's **centerline**
+   (turf `nearestPointOnLine`, meters), checks the **direction filter** (heading within
+   ±60° of the hazard's travel bearing) and the **approach test** (hazard ahead, not
+   behind), and runs the state machine:
+
+   ```
+   IDLE ──(dist ≤ preWarn ∧ approaching ∧ direction ok, 2 consecutive fixes)──► APPROACHING
+   APPROACHING ──(dist ≤ slowDown, 2 consecutive fixes)──► SLOW_DOWN
+   SLOW_DOWN ──(dist < bufferMeters)──► IN_ZONE
+   IN_ZONE ──(exited the zone)──► PASSED
+   PASSED ──(dist > preWarn + 300 m)──► IDLE
+   APPROACHING | SLOW_DOWN ──(receded past preWarn + 300 m ∨ turned away)──► IDLE   ← abort
+   any state ──(hazard deactivated / deleted, seen via SSE)──► IDLE
+   ```
+
+3. **State lands in the store.** `alerting.ts` writes per-hazard `{state, distanceM}`
+   and the highest-tier `activeAlert` into the zustand store. The UI is purely a render
+   of the store — the overlay appears/updates/clears with no event plumbing of its own.
+4. **Feedback fires on escalation.** On entering APPROACHING or SLOW_DOWN the glue plays
+   the chime, a pre-rendered voice clip ("Attention! Roadworks ahead." / "Slow down
+   now!"), and vibrates. Tapping the overlay **acknowledges** the current tier (engine-
+   side cooldown); a genuine escalation still breaks through.
+5. **The cloud stays live.** The client re-queries hazards around its position (every
+   30 s or 2 km) and holds an SSE subscription; an admin toggling a hazard reaches every
+   phone in ~1–2 s and resets its alert state if it was mid-approach.
+
+## Parameters
+
+| Parameter | Value |
+| --- | --- |
+| Client (Vite dev server) | `:5173` — binds all interfaces, proxies `/api` → `:8080` |
+| Mock cloud (Express) | `:8080` |
+| Admin panel | `http://localhost:8080/admin` |
+| M1 hazard pre-warn / slow-down | 2000 m / 800 m before the zone |
+| Zone half-width (`bufferMeters`) | 60 m around the centerline |
+| Direction filter | travel bearing 290° ± 60° (opposite carriageway rejected) |
+| Escalation jitter guard | 2 consecutive agreeing fixes |
+| De-escalation hysteresis | preWarn + 300 m |
+| Acknowledge cooldown | 3 min (engine-side, per hazard) |
+| GPS accuracy filter | fixes with accuracy > 100 m dropped |
+| SSE keep-alive | comment every 25 s |
+| Units convention | distance m · speed km/h · bearing 0–360° · GeoJSON `[lon, lat]` |
+
+### Cloud API (the contract the real cloud must honor)
+
+```
+GET    /api/v1/hazards?lat=&lon=&radius=   → active hazards near a point  ← the app's ONLY list query
+GET    /api/v1/stream                      → SSE: hazard_created | hazard_updated | hazard_deleted
+GET    /api/v1/hazards                     → all hazards incl. inactive   (admin panel only)
+GET    /api/v1/hazards/:id                 POST /api/v1/hazards
+PATCH  /api/v1/hazards/:id                 DELETE /api/v1/hazards/:id
+GET    /health                             → {"ok":true}
+```
+
+## Why this architecture
+
+- **Position enters through ONE interface.** The alert engine consumes `PositionFix`
+  objects and never knows whether they came from `watchPosition` or simulated playback.
+  This is what makes the POC demonstrable at a desk — and it is why the demo can never
+  be ruined by a weak GPS signal.
+- **The engine is a pure module.** No React, no DOM, no fetch, no timers, no
+  `Date.now()` (time comes from fix timestamps). It is fully unit-tested (7 recorded
+  scenarios, including opposite-carriageway silence, GPS jitter, and abort-approach) and
+  moves unchanged into a future native app.
+- **Buffered centerline, not hand-drawn polygons.** A hazard is a polyline traced along
+  the real road (the M1 geometry comes from OpenStreetMap) plus a half-width. Authoring
+  is trivial and "distance to zone" is one turf call — exactly the number the alert
+  tiers need. The polygon drawn on the map is presentation only.
+- **Direction awareness.** Every hazard carries a travel bearing + tolerance, so the
+  opposite carriageway — the classic false-alarm generator — stays silent.
+- **SSE, not WebSocket.** The cloud only ever pushes one way. Server-Sent Events are
+  simpler, proxy-friendly, and auto-reconnect in the browser for free.
+- **The client already speaks the production contract.** It only ever asks for hazards
+  *near itself* (radius query) and listens to the event stream, with all payloads typed
+  from `shared/`. Swapping the mock for a real cloud (with a spatial index behind the
+  same two endpoints) requires no client change — that seam is the whole point of the
+  POC.
+- **Active-only invariant.** The client store holds only active hazards; deactivation
+  (via SSE) is uniformly "hazard disappeared" → the engine resets that hazard to IDLE.
+  One rule, no special cases.
+- **Pre-rendered voice, not speech synthesis.** Spoken alerts are neural-TTS MP3 clips
+  shipped with the app, so they sound identical (good) on every device. Browser
+  `speechSynthesis` depends on device-installed voices and is unacceptably robotic on
+  most.
 
 ## Quick start
 
+Requirements: Node ≥ 20, npm (workspaces — no global tooling).
+
 ```bash
 npm install
-npm run dev
+npm run dev     # starts BOTH: mock cloud (:8080) + client (:5173)
 ```
-
-`npm run dev` starts both processes (Vite client + Express mock cloud) with one command:
 
 | What | URL |
 | --- | --- |
 | App (start / drive screen) | http://localhost:5173 |
-| Mock cloud API | http://localhost:8080 |
-| **Admin panel** (map, draw/toggle hazards) | http://localhost:8080/admin |
+| Admin panel (draw / toggle hazards) | http://localhost:8080/admin |
 | Health check | `curl localhost:8080/health` → `{"ok":true}` |
 
-The Vite dev server proxies `/api` → `http://localhost:8080`, so the whole app is
-reachable through the single client port (5173) — this matters for phone/tunnel access
-below.
-
-Other scripts:
-
 ```bash
-npm run typecheck   # tsc --noEmit across shared, server, client
 npm run test        # vitest — the 7 alert-engine scenarios (authoritative acceptance)
+npm run typecheck   # tsc --noEmit across shared, server, client
 ```
 
 ## Stakeholder demo script (~5 minutes)
@@ -58,9 +207,9 @@ same app in its browser — no install. Pick the language (HU/EN) on the start s
 
 **2. Run the simulation — the three-stage warning.**
 Tick **"Demó mód (szimulált útvonal az M1-en)"**, tap **Indítás**. The car leaves the
-Budapest side of the M1 heading toward Győr. Use the transport controls at the bottom to
-raise playback to **×4** (or ×16) — buttons are `⏸` play/pause, `⟲` restart, `×1 / ×4 /
-×16`, and a scrub slider.
+Budapest side of the M1 heading toward Győr — on the real motorway geometry, south of
+Tata. Use the transport controls at the bottom to raise playback to **×4** (or ×16) —
+buttons are `▶`/`⏸` play/pause, `⟲` restart, `×1 / ×4 / ×16`, and a scrub slider.
 
 - At ~**2 km** the phone chimes, an amber banner takes the screen: **"Veszély
   előttünk"** with a live distance countdown, and a voice says *"Attention! Roadworks ahead."*
@@ -200,13 +349,5 @@ replace the mock without any client change** — same endpoints, same `Hazard` s
 event stream. Deploying that real service (and the client over HTTPS) is future work
 beyond this POC.
 
-## Layout
-
-```
-shared/   @m1/shared — shared TypeScript types (no build step)
-server/   @m1/server — Express mock cloud + admin panel (runs under tsx)
-client/   @m1/client — Vite + React app (start screen, Leaflet drive screen, alert engine)
-```
-
-See `docs/plans/` for the implementation plan and `CLAUDE.md` for architecture rules and
-conventions.
+See `docs/plans/` for the reviewed implementation plan and `CLAUDE.md` for the
+architecture rules the codebase enforces.
