@@ -15,6 +15,13 @@ const VIBRATION_PATTERN = [300, 100, 300];
  * drive the visual overlay only.
  */
 function routeFeedback(event: EngineEvent): void {
+  if (event.to === 'IN_ZONE') {
+    // Entering the zone itself: haptic + chime nudge, no speech (the banner
+    // already owns the screen and the voice fired at SLOW_DOWN).
+    chime();
+    vibrate(VIBRATION_PATTERN);
+    return;
+  }
   if (event.to !== 'APPROACHING' && event.to !== 'SLOW_DOWN') return;
   const hazard = useAppStore.getState().hazards.find((h) => h.id === event.hazardId);
   if (!hazard) return;

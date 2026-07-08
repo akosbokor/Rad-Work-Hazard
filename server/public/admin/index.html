@@ -76,6 +76,10 @@
         <button class="primary" id="draw">Start drawing</button>
         <button class="ghost" id="clear">Clear points</button>
       </div>
+      <label style="display:flex; align-items:center; gap:6px; margin-top:8px;">
+        <input id="snap" type="checkbox" checked style="width:auto;" />
+        Snap to road
+      </label>
       <p class="hint"><span id="ptcount">0</span> point(s)</p>
 
       <h2>Fields</h2>
@@ -269,10 +273,7 @@
         drawLayer.clearLayers();
         document.getElementById('ptcount').textContent = '0';
       };
-      map.on('click', (e) => {
-        if (!drawing) return;
-        drawPoints.push([e.latlng.lng, e.latlng.lat]);
-        document.getElementById('ptcount').textContent = String(drawPoints.length);
+      function redrawDraft() {
         drawLayer.clearLayers();
         drawLayer.addLayer(
           L.polyline(
@@ -283,6 +284,52 @@
         drawPoints.forEach((c) =>
           drawLayer.addLayer(L.circleMarker([c[1], c[0]], { radius: 4, color: '#000' }))
         );
+        document.getElementById('ptcount').textContent = String(drawPoints.length);
+      }
+
+      // Fetch the road-following route between two [lon,lat] points via OSRM.
+      // Returns an array of [lon,lat] coords, or null on any failure/timeout.
+      async function snapRoute(prev, next) {
+        const url =
+          'https://router.project-osrm.org/route/v1/driving/' +
+          prev[0] + ',' + prev[1] + ';' + next[0] + ',' + next[1] +
+          '?overview=full&geometries=geojson';
+        const ctrl = new AbortController();
+        const timer = setTimeout(() => ctrl.abort(), 4000);
+        try {
+          const res = await fetch(url, { signal: ctrl.signal });
+          if (!res.ok) return null;
+          const data = await res.json();
+          const coords = data && data.routes && data.routes[0]
+            && data.routes[0].geometry && data.routes[0].geometry.coordinates;
+          if (!coords || coords.length < 2) return null;
+          return coords;
+        } catch (_) {
+          return null;
+        } finally {
+          clearTimeout(timer);
+        }
+      }
+
+      map.on('click', async (e) => {
+        if (!drawing) return;
+        const next = [e.latlng.lng, e.latlng.lat];
+        const prev = drawPoints.length ? drawPoints[drawPoints.length - 1] : null;
+        const snap = document.getElementById('snap').checked;
+        if (prev && snap) {
+          const coords = await snapRoute(prev, next);
+          if (coords) {
+            for (const c of coords) {
+              const last = drawPoints[drawPoints.length - 1];
+              if (last && last[0] === c[0] && last[1] === c[1]) continue;
+              drawPoints.push([c[0], c[1]]);
+            }
+            redrawDraft();
+            return;
+          }
+        }
+        drawPoints.push(next);
+        redrawDraft();
       });
 
       // --- CRUD ---
