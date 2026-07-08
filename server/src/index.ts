@@ -113,6 +113,12 @@ app.post('/api/v1/vehicles', (req, res) => {
     timestamp: Number.isFinite(b.timestamp) ? (b.timestamp as number) : Date.now(),
   };
   vehicles.set(vehicle.id, vehicle);
+  // Opportunistic eviction so the map stays bounded even if the admin page
+  // (the only GET caller) is never opened.
+  const cutoff = Date.now() - VEHICLE_TTL_MS;
+  for (const [id, v] of vehicles) {
+    if (v.timestamp < cutoff) vehicles.delete(id);
+  }
   broadcast({ type: 'vehicle_position', vehicle });
   res.status(204).end();
 });
