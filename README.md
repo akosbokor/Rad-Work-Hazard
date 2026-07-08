@@ -101,6 +101,9 @@ road-hazard-alert/
    any state ──(hazard deactivated / deleted, seen via SSE)──► IDLE
    ```
 
+   (Late joins skip tiers: a first qualifying fix already within `slowDown` — or inside
+   the zone — escalates directly from IDLE.)
+
 3. **State lands in the store.** `alerting.ts` writes per-hazard `{state, distanceM}`
    and the highest-tier `activeAlert` into the zustand store. The UI is purely a render
    of the store — the overlay appears/updates/clears with no event plumbing of its own.
